@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/nocturne-5c1f6a15-d402-4f63-9593-fd8a2ed955f7/styles.css">
+<script src="_ds/nocturne-5c1f6a15-d402-4f63-9593-fd8a2ed955f7/_ds_bundle.js"></script>
+<style>
+body{margin:0;background:#161826}
+@keyframes noct-breathe{0%,100%{opacity:.55}50%{opacity:1}}
+.noct-nobar{scrollbar-width:none}
+.noct-nobar::-webkit-scrollbar{display:none}
+</style>
+</helmet>
+<div style="min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:36px 24px;background:var(--color-bg)">
+<x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" dark="{{ true }}" hint-size="412px,892px">
+
+<div style="height:100%;display:flex;flex-direction:column;background:var(--color-bg);color:var(--color-text);font-family:var(--font-body);font-size:15px;overflow:hidden">
+
+<div style="flex:1;overflow:auto;-webkit-overflow-scrolling:touch">
+
+<sc-if value="{{ showToday }}" hint-placeholder-val="{{ true }}">
+<div style="padding:14px 16px 20px">
+<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px">
+<div>
+<div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-accent)">Wednesday, 10 Sept</div>
+<h4 style="margin:4px 0 0;font-size:20px">Today</h4>
+</div>
+<button class="btn btn-secondary" style="min-height:36px;font-size:12px;white-space:nowrap;flex:none">Week 3</button>
+</div>
+
+<div style="display:flex;align-items:flex-end;gap:10px;margin-bottom:6px">
+<div style="font-family:var(--font-heading);font-weight:500;font-size:46px;line-height:1;letter-spacing:-.02em">3h 12m</div>
+<div style="font-size:12px;color:var(--color-neutral-400);padding-bottom:6px">of 4h target</div>
+</div>
+<div style="display:flex;height:6px;border-radius:3px;overflow:hidden;gap:2px;margin:12px 0 8px">
+<div style="width:42%;background:#968ae0"></div>
+<div style="width:23%;background:#b5abfc"></div>
+<div style="width:35%;background:#7972a9"></div>
+</div>
+<div style="display:flex;gap:14px;font-size:11px;color:var(--color-neutral-400);margin-bottom:22px">
+<span>CS 340 · 1h 20m</span><span>MATH 221 · 45m</span><span>PHYS 210 · 1h 07m</span>
+</div>
+
+<button class="btn btn-primary btn-block" style="min-height:48px;font-size:15px;margin-bottom:22px" onClick="{{ openTimer }}">Start focus session</button>
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+<h6 style="margin:0;color:var(--color-neutral-400)">This week by course</h6>
+<span style="font-size:11px;color:var(--color-neutral-500)">goal</span>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+<sc-for list="{{ courses }}" as="c" hint-placeholder-count="5">
+<div class="card elev-sm" style="gap:8px;padding:12px;cursor:pointer" onClick="{{ c.open }}">
+<div style="display:flex;align-items:center;gap:10px">
+<div style="width:8px;height:8px;border-radius:50%;flex:none;background:{{ c.color }}"></div>
+<div style="flex:1;min-width:0">
+<div style="font-family:var(--font-heading);font-weight:500;font-size:14px">{{ c.code }}</div>
+<div style="font-size:11px;color:var(--color-neutral-500);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.name }}</div>
+</div>
+<div style="text-align:right">
+<div style="font-size:13px">{{ c.weekLabel }}</div>
+<div style="font-size:11px;color:var(--color-neutral-500)">/ {{ c.goalLabel }}</div>
+</div>
+</div>
+<div style="height:3px;border-radius:2px;background:var(--color-neutral-800);overflow:hidden">
+<div style="height:100%;background:{{ c.color }};width:{{ c.pct }}"></div>
+</div>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ showCourses }}" hint-placeholder-val="{{ false }}">
+<div style="padding:14px 16px 20px">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+<h4 style="margin:0;font-size:20px">Courses</h4>
+<button class="btn btn-primary" style="min-height:36px;font-size:12px" onClick="{{ openAdd }}">+ Add</button>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px">
+<sc-for list="{{ courses }}" as="c" hint-placeholder-count="5">
+<div class="card elev-sm" style="padding:14px;gap:12px;cursor:pointer" onClick="{{ c.open }}">
+<div style="display:flex;align-items:flex-start;gap:12px">
+<div style="flex:1;min-width:0">
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+<div style="width:8px;height:8px;border-radius:50%;background:{{ c.color }}"></div>
+<span style="font-family:var(--font-heading);font-weight:500;font-size:15px">{{ c.code }}</span>
+</div>
+<div style="font-size:12px;color:var(--color-neutral-400)">{{ c.name }}</div>
+<div style="font-size:11px;color:var(--color-neutral-500);margin-top:6px">{{ c.totalLabel }} total · {{ c.sessions }} sessions</div>
+</div>
+<div style="display:flex;align-items:flex-end;gap:2px;height:34px">
+<sc-for list="{{ c.spark }}" as="s" hint-placeholder-count="7">
+<div style="width:5px;border-radius:1px;background:{{ s.fill }};height:{{ s.h }}"></div>
+</sc-for>
+</div>
+</div>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ showDetail }}" hint-placeholder-val="{{ false }}">
+<div style="padding:14px 16px 20px">
+<button class="btn btn-ghost" style="min-height:40px;font-size:13px;margin-bottom:8px" onClick="{{ back }}">← Courses</button>
+<div style="display:flex;align-items:center;gap:9px;margin-bottom:2px">
+<div style="width:10px;height:10px;border-radius:50%;background:{{ detail.color }}"></div>
+<h4 style="margin:0;font-size:22px">{{ detail.code }}</h4>
+</div>
+<div style="font-size:13px;color:var(--color-neutral-400);margin-bottom:18px">{{ detail.name }}</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px">
+<div class="card elev-sm" style="padding:12px;gap:2px">
+<div style="font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--color-neutral-500)">This week</div>
+<div style="font-family:var(--font-heading);font-size:22px">{{ detail.weekLabel }}</div>
+</div>
+<div class="card elev-sm" style="padding:12px;gap:2px">
+<div style="font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--color-neutral-500)">Total</div>
+<div style="font-family:var(--font-heading);font-size:22px">{{ detail.totalLabel }}</div>
+</div>
+<div class="card elev-sm" style="padding:12px;gap:2px">
+<div style="font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--color-neutral-500)">Avg session</div>
+<div style="font-family:var(--font-heading);font-size:22px">{{ detail.avgLabel }}</div>
+</div>
+<div class="card elev-sm" style="padding:12px;gap:2px">
+<div style="font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--color-neutral-500)">Interruptions</div>
+<div style="font-family:var(--font-heading);font-size:22px">{{ detail.interruptions }}</div>
+</div>
+</div>
+
+<h6 style="margin:0 0 10px;color:var(--color-neutral-400)">Last 7 days</h6>
+<div style="display:flex;align-items:flex-end;gap:6px;height:104px;margin-bottom:6px">
+<sc-for list="{{ detail.week }}" as="d" hint-placeholder-count="7">
+<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;gap:6px">
+<div style="border-radius:3px 3px 0 0;background:{{ d.fill }};height:{{ d.h }}"></div>
+<div style="font-size:10px;text-align:center;color:var(--color-neutral-500)">{{ d.label }}</div>
+</div>
+</sc-for>
+</div>
+<div style="height:1px;background:linear-gradient(to right,transparent,var(--color-divider) 40px,var(--color-divider) calc(100% - 40px),transparent);margin:16px 0 14px"></div>
+
+<h6 style="margin:0 0 10px;color:var(--color-neutral-400)">Recent sessions</h6>
+<div style="display:flex;flex-direction:column;gap:2px">
+<sc-for list="{{ detail.recent }}" as="s" hint-placeholder-count="4">
+<div style="display:flex;align-items:center;gap:12px;padding:10px 2px;border-bottom:1px solid var(--color-neutral-900)">
+<div style="flex:1;min-width:0">
+<div style="font-size:13px">{{ s.range }}</div>
+<div style="font-size:11px;color:var(--color-neutral-500)">{{ s.meta }}</div>
+</div>
+<div style="font-family:var(--font-heading);font-size:14px">{{ s.dur }}</div>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ showStats }}" hint-placeholder-val="{{ false }}">
+<div style="padding:14px 16px 20px">
+<h4 style="margin:0 0 14px;font-size:20px">Stats</h4>
+
+<div style="display:flex;gap:8px;margin-bottom:20px">
+<div class="card elev-sm" style="flex:1;padding:12px;gap:2px">
+<div style="font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--color-neutral-500)">Term total</div>
+<div style="font-family:var(--font-heading);font-size:24px">117h</div>
+</div>
+<div class="card elev-sm" style="flex:1;padding:12px;gap:2px">
+<div style="font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--color-neutral-500)">Streak</div>
+<div style="font-family:var(--font-heading);font-size:24px">12 days</div>
+</div>
+</div>
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+<h6 style="margin:0;color:var(--color-neutral-400)">Hours per day</h6>
+<div class="seg" style="border-radius:6px">
+<label class="seg-opt" style="padding:5px 9px;font-size:11px"><input type="radio" name="noct-range" checked="{{ true }}"><span>Week</span></label>
+<label class="seg-opt" style="padding:5px 9px;font-size:11px"><input type="radio" name="noct-range"><span>Month</span></label>
+</div>
+</div>
+<div style="display:flex;align-items:flex-end;gap:7px;height:112px">
+<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;gap:6px"><div style="height:68px;border-radius:3px 3px 0 0;background:var(--color-accent-600)"></div><div style="font-size:10px;text-align:center;color:var(--color-neutral-500)">M</div></div>
+<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;gap:6px"><div style="height:45px;border-radius:3px 3px 0 0;background:var(--color-accent-600)"></div><div style="font-size:10px;text-align:center;color:var(--color-neutral-500)">T</div></div>
+<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;gap:6px"><div style="height:68px;border-radius:3px 3px 0 0;background:var(--color-accent-500)"></div><div style="font-size:10px;text-align:center;color:var(--color-accent)">W</div></div>
+<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;gap:6px"><div style="height:85px;border-radius:3px 3px 0 0;background:var(--color-accent-600)"></div><div style="font-size:10px;text-align:center;color:var(--color-neutral-500)">T</div></div>
+<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;gap:6px"><div style="height:32px;border-radius:3px 3px 0 0;background:var(--color-accent-600)"></div><div style="font-size:10px;text-align:center;color:var(--color-neutral-500)">F</div></div>
+<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;gap:6px"><div style="height:55px;border-radius:3px 3px 0 0;background:var(--color-accent-600)"></div><div style="font-size:10px;text-align:center;color:var(--color-neutral-500)">S</div></div>
+<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;gap:6px"><div style="height:17px;border-radius:3px 3px 0 0;background:var(--color-accent-600)"></div><div style="font-size:10px;text-align:center;color:var(--color-neutral-500)">S</div></div>
+</div>
+
+<div style="height:1px;background:linear-gradient(to right,transparent,var(--color-divider) 40px,var(--color-divider) calc(100% - 40px),transparent);margin:22px 0 18px"></div>
+
+<h6 style="margin:0 0 10px;color:var(--color-neutral-400)">Course split · term</h6>
+<div style="display:flex;align-items:center;gap:18px;margin-bottom:4px">
+<svg width="108" height="108" viewBox="0 0 108 108" style="flex:none;transform:rotate(-90deg)">
+<circle cx="54" cy="54" r="44" fill="none" stroke="#292b31" stroke-width="13"></circle>
+<circle cx="54" cy="54" r="44" fill="none" stroke="#968ae0" stroke-width="13" stroke-dasharray="97 180" stroke-dashoffset="0"></circle>
+<circle cx="54" cy="54" r="44" fill="none" stroke="#b5abfc" stroke-width="13" stroke-dasharray="64 213" stroke-dashoffset="-99"></circle>
+<circle cx="54" cy="54" r="44" fill="none" stroke="#7972a9" stroke-width="13" stroke-dasharray="50 227" stroke-dashoffset="-165"></circle>
+<circle cx="54" cy="54" r="44" fill="none" stroke="#d2cefd" stroke-width="13" stroke-dasharray="31 246" stroke-dashoffset="-217"></circle>
+<circle cx="54" cy="54" r="44" fill="none" stroke="#9397ab" stroke-width="13" stroke-dasharray="24 253" stroke-dashoffset="-251"></circle>
+</svg>
+<div style="flex:1;display:flex;flex-direction:column;gap:7px">
+<div style="display:flex;align-items:center;gap:8px;font-size:12px"><span style="width:7px;height:7px;border-radius:50%;background:#968ae0"></span><span style="flex:1">CS 340</span><span style="color:var(--color-neutral-400)">42h</span></div>
+<div style="display:flex;align-items:center;gap:8px;font-size:12px"><span style="width:7px;height:7px;border-radius:50%;background:#b5abfc"></span><span style="flex:1">MATH 221</span><span style="color:var(--color-neutral-400)">28h</span></div>
+<div style="display:flex;align-items:center;gap:8px;font-size:12px"><span style="width:7px;height:7px;border-radius:50%;background:#7972a9"></span><span style="flex:1">PHYS 210</span><span style="color:var(--color-neutral-400)">22h</span></div>
+<div style="display:flex;align-items:center;gap:8px;font-size:12px"><span style="width:7px;height:7px;border-radius:50%;background:#d2cefd"></span><span style="flex:1">SPAN 202</span><span style="color:var(--color-neutral-400)">14h</span></div>
+<div style="display:flex;align-items:center;gap:8px;font-size:12px"><span style="width:7px;height:7px;border-radius:50%;background:#9397ab"></span><span style="flex:1">HIST 105</span><span style="color:var(--color-neutral-400)">11h</span></div>
+</div>
+</div>
+
+<div style="height:1px;background:linear-gradient(to right,transparent,var(--color-divider) 40px,var(--color-divider) calc(100% - 40px),transparent);margin:22px 0 18px"></div>
+
+<h6 style="margin:0 0 4px;color:var(--color-neutral-400)">When you study</h6>
+<div style="font-size:11px;color:var(--color-neutral-500);margin-bottom:10px">Peak focus 09:00–11:00 and 20:00–22:00</div>
+<svg width="100%" height="96" viewBox="0 0 364 96" preserveAspectRatio="none" style="display:block">
+<path d="M0 90 L18 84 L40 70 L62 34 L84 22 L106 40 L128 62 L150 58 L172 66 L194 48 L216 52 L238 60 L260 46 L282 26 L304 18 L326 44 L344 68 L364 82 L364 96 L0 96 Z" fill="#2b2741"></path>
+<path d="M0 90 L18 84 L40 70 L62 34 L84 22 L106 40 L128 62 L150 58 L172 66 L194 48 L216 52 L238 60 L260 46 L282 26 L304 18 L326 44 L344 68 L364 82" fill="none" stroke="#968ae0" stroke-width="2"></path>
+</svg>
+<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--color-neutral-500);margin-top:4px">
+<span>6a</span><span>10a</span><span>2p</span><span>6p</span><span>10p</span>
+</div>
+
+<div style="height:1px;background:linear-gradient(to right,transparent,var(--color-divider) 40px,var(--color-divider) calc(100% - 40px),transparent);margin:22px 0 18px"></div>
+
+<h6 style="margin:0 0 10px;color:var(--color-neutral-400)">Cumulative hours · term</h6>
+<svg width="100%" height="104" viewBox="0 0 364 104" preserveAspectRatio="none" style="display:block">
+<path d="M0 100 L30 94 L61 88 L91 74 L121 70 L152 56 L182 48 L212 40 L243 30 L273 22 L303 14 L334 8 L364 4" fill="none" stroke="#b5abfc" stroke-width="2.5"></path>
+<path d="M0 100 L30 96 L61 92 L91 84 L121 78 L152 70 L182 64 L212 58 L243 50 L273 44 L303 38 L334 32 L364 26" fill="none" stroke="#595d6c" stroke-width="1.5" stroke-dasharray="4 4"></path>
+</svg>
+<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--color-neutral-500);margin-top:6px">
+<span>Actual 117h</span><span>Term target 96h</span>
+</div>
+
+<div style="height:1px;background:linear-gradient(to right,transparent,var(--color-divider) 40px,var(--color-divider) calc(100% - 40px),transparent);margin:22px 0 18px"></div>
+
+<h6 style="margin:0 0 10px;color:var(--color-neutral-400)">18 weeks</h6>
+<div style="display:flex;gap:3px">
+<sc-for list="{{ heatWeeks }}" as="w" hint-placeholder-count="18">
+<div style="display:flex;flex-direction:column;gap:3px">
+<sc-for list="{{ w.days }}" as="d" hint-placeholder-count="7">
+<div style="width:14px;height:14px;border-radius:2px;background:{{ d.bg }}"></div>
+</sc-for>
+</div>
+</sc-for>
+</div>
+<div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--color-neutral-500);margin-top:10px">
+<span>less</span>
+<span style="width:11px;height:11px;border-radius:2px;background:#292b31"></span>
+<span style="width:11px;height:11px;border-radius:2px;background:#423a6a"></span>
+<span style="width:11px;height:11px;border-radius:2px;background:#5d5294"></span>
+<span style="width:11px;height:11px;border-radius:2px;background:#796cbf"></span>
+<span style="width:11px;height:11px;border-radius:2px;background:#b5abfc"></span>
+<span>more</span>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ showLog }}" hint-placeholder-val="{{ false }}">
+<div style="padding:14px 16px 20px">
+<h4 style="margin:0 0 16px;font-size:20px">Session log</h4>
+<sc-for list="{{ log }}" as="g" hint-placeholder-count="3">
+<div style="margin-bottom:18px">
+<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px">
+<h6 style="margin:0;color:var(--color-accent)">{{ g.day }}</h6>
+<span style="font-size:11px;color:var(--color-neutral-500)">{{ g.total }}</span>
+</div>
+<div style="display:flex;flex-direction:column">
+<sc-for list="{{ g.items }}" as="s" hint-placeholder-count="3">
+<div style="display:flex;align-items:center;gap:11px;padding:11px 2px;border-bottom:1px solid var(--color-neutral-900)">
+<div style="width:8px;height:8px;border-radius:50%;flex:none;background:{{ s.color }}"></div>
+<div style="flex:1;min-width:0">
+<div style="font-size:13px">{{ s.code }}</div>
+<div style="font-size:11px;color:var(--color-neutral-500)">{{ s.meta }}</div>
+</div>
+<div style="font-family:var(--font-heading);font-size:14px">{{ s.dur }}</div>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ showAdd }}" hint-placeholder-val="{{ false }}">
+<div style="padding:14px 16px 20px">
+<button class="btn btn-ghost" style="min-height:40px;font-size:13px;margin-bottom:8px" onClick="{{ back }}">← Cancel</button>
+<h4 style="margin:0 0 18px;font-size:20px">Add course</h4>
+<div class="field" style="margin-bottom:14px">
+<label>Course code</label>
+<input class="input" style="min-height:44px" placeholder="CHEM 150" value="{{ form.code }}" onChange="{{ form.setCode }}">
+</div>
+<div class="field" style="margin-bottom:14px">
+<label>Course name</label>
+<input class="input" style="min-height:44px" placeholder="Organic Chemistry I" value="{{ form.name }}" onChange="{{ form.setName }}">
+</div>
+<div class="field" style="margin-bottom:16px">
+<label>Colour</label>
+<div style="display:flex;gap:10px;margin-top:4px">
+<sc-for list="{{ form.swatches }}" as="s" hint-placeholder-count="5">
+<div style="width:40px;height:40px;border-radius:var(--radius-md);cursor:pointer;background:{{ s.color }};box-shadow:{{ s.ring }}" onClick="{{ s.pick }}"></div>
+</sc-for>
+</div>
+</div>
+<div class="field" style="margin-bottom:20px">
+<label>Weekly goal · {{ form.goalLabel }}</label>
+<div style="display:flex;align-items:center;gap:10px;margin-top:6px">
+<button class="btn btn-secondary btn-icon" style="width:44px;height:44px;font-size:18px" onClick="{{ form.less }}">−</button>
+<div style="flex:1;height:4px;border-radius:2px;background:var(--color-neutral-800);overflow:hidden">
+<div style="height:100%;background:var(--color-accent);width:{{ form.goalPct }}"></div>
+</div>
+<button class="btn btn-secondary btn-icon" style="width:44px;height:44px;font-size:18px" onClick="{{ form.more }}">+</button>
+</div>
+</div>
+<button class="btn btn-primary btn-block" style="min-height:48px;font-size:15px" onClick="{{ form.submit }}">Add course</button>
+<p style="font-size:11px;color:var(--color-neutral-500);margin-top:12px">Sessions started from the timer are filed under the course you pick there.</p>
+</div>
+</sc-if>
+
+<sc-if value="{{ showTimer }}" hint-placeholder-val="{{ false }}">
+<div style="padding:14px 16px 20px;display:flex;flex-direction:column;min-height:100%">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+<button class="btn btn-ghost" style="min-height:40px;font-size:13px;white-space:nowrap;flex:none" onClick="{{ back }}">← Today</button>
+<span style="font-size:11px;color:var(--color-neutral-500)">{{ timer.cycleLabel }}</span>
+</div>
+
+<div class="noct-nobar" style="display:flex;gap:6px;overflow:auto;padding:4px 0 12px">
+<sc-for list="{{ timer.chips }}" as="c" hint-placeholder-count="5">
+<div style="flex:none;padding:7px 12px;border-radius:6px;font-size:12px;cursor:pointer;white-space:nowrap;color:{{ c.fg }};box-shadow:{{ c.ring }}" onClick="{{ c.pick }}">{{ c.code }}</div>
+</sc-for>
+</div>
+
+<div style="display:flex;flex-direction:column;align-items:center;padding:10px 0 4px">
+<div style="position:relative;width:236px;height:236px">
+<svg width="236" height="236" viewBox="0 0 236 236" style="transform:rotate(-90deg)">
+<circle cx="118" cy="118" r="104" fill="none" stroke="#292b31" stroke-width="10"></circle>
+<circle cx="118" cy="118" r="104" fill="none" stroke="{{ timer.ringColor }}" stroke-width="10" stroke-linecap="round" stroke-dasharray="653.5" stroke-dashoffset="{{ timer.dashoffset }}"></circle>
+</svg>
+<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px">
+<div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:{{ timer.ringColor }};animation:{{ timer.pulse }}">{{ timer.phaseLabel }}</div>
+<div style="font-family:var(--font-heading);font-weight:500;font-size:54px;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums">{{ timer.clock }}</div>
+<div style="font-size:11px;color:var(--color-neutral-500)">{{ timer.courseName }}</div>
+</div>
+</div>
+</div>
+
+<div style="display:flex;gap:8px;margin:18px 0 10px">
+<button class="btn btn-primary" style="flex:1;min-height:48px;font-size:15px" onClick="{{ timer.toggle }}">{{ timer.toggleLabel }}</button>
+<button class="btn btn-secondary" style="min-height:48px;font-size:13px;padding:0 14px" onClick="{{ timer.skip }}">Skip</button>
+</div>
+<button class="btn btn-secondary btn-block" style="min-height:44px;font-size:13px" onClick="{{ timer.interrupt }}">Log interruption · {{ timer.interruptions }}</button>
+
+<div style="height:1px;background:linear-gradient(to right,transparent,var(--color-divider) 40px,var(--color-divider) calc(100% - 40px),transparent);margin:20px 0 14px"></div>
+
+<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px">
+<h6 style="margin:0;color:var(--color-neutral-400)">Tasks this session</h6>
+<span style="font-size:11px;color:var(--color-neutral-500)">{{ timer.taskCount }}</span>
+</div>
+<div style="display:flex;flex-direction:column">
+<sc-for list="{{ timer.tasks }}" as="t" hint-placeholder-count="3">
+<div style="display:flex;align-items:center;gap:11px;padding:11px 2px;border-bottom:1px solid var(--color-neutral-900);cursor:pointer" onClick="{{ t.toggle }}">
+<div style="width:17px;height:17px;border-radius:4px;flex:none;background:{{ t.box }};box-shadow:{{ t.ring }}"></div>
+<span style="flex:1;font-size:13px;color:{{ t.fg }};text-decoration:{{ t.strike }}">{{ t.label }}</span>
+<span style="font-size:11px;color:var(--color-neutral-500)">{{ t.pomos }}</span>
+</div>
+</sc-for>
+</div>
+<div style="display:flex;gap:8px;margin-top:12px">
+<input class="input" style="min-height:44px;flex:1" placeholder="Add a task" value="{{ timer.draft }}" onChange="{{ timer.setDraft }}" onKeyDown="{{ timer.draftKey }}">
+<button class="btn btn-secondary" style="min-height:44px;padding:0 14px" onClick="{{ timer.addTask }}">Add</button>
+</div>
+
+<div style="flex:1"></div>
+<button class="btn btn-secondary btn-block" style="min-height:44px;font-size:13px;margin-top:18px" onClick="{{ timer.end }}">End session · {{ timer.elapsedLabel }} logged</button>
+</div>
+</sc-if>
+
+</div>
+
+<div style="flex:none;display:flex;border-top:1px solid var(--color-neutral-900);background:var(--color-bg)">
+<sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+<div style="flex:1;min-height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;color:{{ t.fg }}" onClick="{{ t.go }}">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="{{ t.icon }}"></path></svg>
+<span style="font-size:10px;letter-spacing:.02em">{{ t.label }}</span>
+</div>
+</sc-for>
+</div>
+
+</div>
+</x-import>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;focusMinutes&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:25,&quot;tsType&quot;:&quot;number&quot;,&quot;min&quot;:5,&quot;max&quot;:60,&quot;unit&quot;:&quot;min&quot;,&quot;section&quot;:&quot;Pomodoro&quot;},&quot;breakMinutes&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:5,&quot;tsType&quot;:&quot;number&quot;,&quot;min&quot;:1,&quot;max&quot;:20,&quot;unit&quot;:&quot;min&quot;,&quot;section&quot;:&quot;Pomodoro&quot;},&quot;showGoalRings&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Display&quot;}}">
+const COURSES = [
+  { id: 'cs', code: 'CS 340', name: 'Algorithms & Complexity', color: '#968ae0', week: 6.5, goal: 8, total: 42, sessions: 31, avg: '1h 21m', interruptions: 14, spark: [1.6, 0, 1.3, 2.1, 0.8, 1.0, 0] },
+  { id: 'math', code: 'MATH 221', name: 'Linear Algebra', color: '#b5abfc', week: 4.0, goal: 6, total: 28, sessions: 24, avg: '1h 10m', interruptions: 9, spark: [1.2, 0.7, 0.75, 0, 0.6, 0.75, 0] },
+  { id: 'phys', code: 'PHYS 210', name: 'Classical Mechanics', color: '#7972a9', week: 3.25, goal: 5, total: 22, sessions: 18, avg: '1h 13m', interruptions: 11, spark: [0, 1.1, 1.12, 0.5, 0, 0.53, 0] },
+  { id: 'span', code: 'SPAN 202', name: 'Intermediate Spanish', color: '#d2cefd', week: 2.0, goal: 2, total: 14, sessions: 20, avg: '42m', interruptions: 4, spark: [1.0, 0, 0, 0.5, 0.5, 0, 0] },
+  { id: 'hist', code: 'HIST 105', name: 'Modern Europe', color: '#9397ab', week: 1.5, goal: 3, total: 11, sessions: 9, avg: '1h 05m', interruptions: 6, spark: [0, 0.75, 0, 0.75, 0, 0, 0] },
+];
+
+const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+const RECENT = {
+  cs: [
+    { range: 'Wed 09:10 – 10:30', meta: '3 pomodoros · 1 interruption', dur: '1h 20m' },
+    { range: 'Tue 11:00 – 12:15', meta: '3 pomodoros · 0 interruptions', dur: '1h 15m' },
+    { range: 'Mon 10:00 – 11:40', meta: '4 pomodoros · 2 interruptions', dur: '1h 40m' },
+    { range: 'Sat 14:20 – 15:30', meta: '3 pomodoros · 1 interruption', dur: '1h 10m' },
+  ],
+};
+const RECENT_FALLBACK = [
+  { range: 'Wed 16:20 – 17:05', meta: '2 pomodoros · 2 interruptions', dur: '45m' },
+  { range: 'Tue 08:30 – 09:40', meta: '3 pomodoros · 0 interruptions', dur: '1h 10m' },
+  { range: 'Sun 19:15 – 20:05', meta: '2 pomodoros · 1 interruption', dur: '50m' },
+];
+
+const LOG = [
+  { day: 'Today · 10 Sept', total: '3h 12m', items: [
+    { id: 'cs', code: 'CS 340', meta: '09:10 – 10:30 · 3 pomodoros · 1 interruption', dur: '1h 20m' },
+    { id: 'phys', code: 'PHYS 210', meta: '13:00 – 14:07 · 2 pomodoros', dur: '1h 07m' },
+    { id: 'math', code: 'MATH 221', meta: '16:20 – 17:05 · 2 pomodoros · 2 interruptions', dur: '45m' },
+  ] },
+  { day: 'Yesterday · 9 Sept', total: '3h 05m', items: [
+    { id: 'math', code: 'MATH 221', meta: '08:30 – 09:40 · 3 pomodoros', dur: '1h 10m' },
+    { id: 'cs', code: 'CS 340', meta: '11:00 – 12:15 · 3 pomodoros', dur: '1h 15m' },
+    { id: 'hist', code: 'HIST 105', meta: '19:00 – 19:45 · 2 pomodoros · 1 interruption', dur: '45m' },
+  ] },
+  { day: 'Monday · 8 Sept', total: '2h 40m', items: [
+    { id: 'cs', code: 'CS 340', meta: '10:00 – 11:40 · 4 pomodoros · 2 interruptions', dur: '1h 40m' },
+    { id: 'span', code: 'SPAN 202', meta: '15:00 – 16:00 · 2 pomodoros', dur: '1h 00m' },
+  ] },
+];
+
+const HEAT_STEPS = ['#292b31', '#423a6a', '#5d5294', '#796cbf', '#b5abfc'];
+const TABS = [
+  { key: 'today', label: 'Today', icon: 'M4 13h4l2-6 3 12 2.5-7h4.5' },
+  { key: 'courses', label: 'Courses', icon: 'M4 5h11a2 2 0 0 1 2 2v12H6a2 2 0 0 1-2-2V5zm13 2h3v12h-3' },
+  { key: 'stats', label: 'Stats', icon: 'M5 20V10m7 10V4m7 16v-7' },
+  { key: 'log', label: 'Log', icon: 'M6 4h12v16H6zM9 9h6M9 13h6M9 17h3' },
+];
+
+function hm(h) {
+  const m = Math.round(h * 60);
+  if (m < 60) return m + 'm';
+  const r = m % 60;
+  return r ? Math.floor(m / 60) + 'h ' + String(r).padStart(2, '0') + 'm' : Math.floor(m / 60) + 'h';
+}
+
+class Component extends DCLogic {
+  state = {
+    tab: 'today',
+    view: 'tab',
+    detailId: 'cs',
+    courses: COURSES,
+    timerCourse: 'cs',
+    phase: 'focus',
+    cycle: 1,
+    left: 25 * 60,
+    running: false,
+    interruptions: 0,
+    elapsed: 0,
+    tasks: [
+      { label: 'Dijkstra proof sketch', done: true, pomos: 2 },
+      { label: 'Problem set 4 · Q1–Q3', done: false, pomos: 1 },
+      { label: 'Re-read amortised analysis', done: false, pomos: 0 },
+    ],
+    draft: '',
+    form: { code: '', name: '', color: '#968ae0', goal: 4 },
+  };
+
+  phaseLen(phase) {
+    const f = Number(this.props.focusMinutes ?? 25);
+    const b = Number(this.props.breakMinutes ?? 5);
+    if (phase === 'focus') return f * 60;
+    if (phase === 'break') return b * 60;
+    return 15 * 60;
+  }
+
+  componentDidMount() {
+    this._t = setInterval(() => {
+      if (!this.state.running) return;
+      this.setState(s => {
+        if (s.left > 1) {
+          return { left: s.left - 1, elapsed: s.phase === 'focus' ? s.elapsed + 1 : s.elapsed };
+        }
+        const cycles = 4;
+        if (s.phase === 'focus') {
+          const next = s.cycle >= cycles ? 'long' : 'break';
+          return { phase: next, left: this.phaseLen(next), elapsed: s.elapsed + 1 };
+        }
+        const nextCycle = s.phase === 'long' ? 1 : s.cycle + 1;
+        return { phase: 'focus', cycle: nextCycle, left: this.phaseLen('focus') };
+      });
+    }, 1000);
+  }
+  componentWillUnmount() { clearInterval(this._t); }
+
+  go(tab) { this.setState({ tab, view: 'tab' }); }
+
+  renderVals() {
+    const s = this.state;
+    const ring = 'inset 0 0 0 1px var(--color-divider)';
+    const course = s.courses.find(c => c.id === s.timerCourse) || s.courses[0];
+    const det = s.courses.find(c => c.id === s.detailId) || s.courses[0];
+    const phaseNames = { focus: 'Focus', break: 'Short break', long: 'Long break' };
+    const len = this.phaseLen(s.phase);
+    const prog = 1 - s.left / len;
+    const C = 653.5;
+
+    const heatWeeks = [];
+    for (let w = 0; w < 18; w++) {
+      const days = [];
+      for (let d = 0; d < 7; d++) {
+        const v = (Math.sin(w * 1.7 + d * 0.9) + Math.cos(w * 0.6 - d * 1.4)) * 0.5 + 0.5;
+        const lvl = d === 6 ? Math.max(0, Math.round(v * 2) - 1) : Math.min(4, Math.round(v * 4.4));
+        days.push({ bg: HEAT_STEPS[Math.max(0, Math.min(4, lvl))] });
+      }
+      heatWeeks.push({ days });
+    }
+
+    const goalMax = 12;
+    const showRings = this.props.showGoalRings ?? true;
+
+    return {
+      showToday: s.view === 'tab' && s.tab === 'today',
+      showCourses: s.view === 'tab' && s.tab === 'courses',
+      showStats: s.view === 'tab' && s.tab === 'stats',
+      showLog: s.view === 'tab' && s.tab === 'log',
+      showTimer: s.view === 'timer',
+      showDetail: s.view === 'detail',
+      showAdd: s.view === 'add',
+      back: () => this.setState({ view: 'tab' }),
+      openTimer: () => this.setState({ view: 'timer' }),
+      openAdd: () => this.setState({ view: 'add', tab: 'courses' }),
+      tabs: TABS.map(t => ({
+        ...t,
+        fg: s.view === 'tab' && s.tab === t.key ? 'var(--color-accent)' : 'var(--color-neutral-500)',
+        go: () => this.go(t.key),
+      })),
+      courses: s.courses.map(c => ({
+        code: c.code, name: c.name, color: c.color,
+        weekLabel: hm(c.week), goalLabel: hm(c.goal), totalLabel: c.total + 'h',
+        sessions: c.sessions,
+        pct: showRings ? Math.min(100, Math.round((c.week / c.goal) * 100)) + '%' : '0%',
+        spark: c.spark.map(v => ({ h: Math.max(3, Math.round(v * 15)) + 'px', fill: v ? c.color : 'var(--color-neutral-800)' })),
+        open: () => this.setState({ view: 'detail', detailId: c.id }),
+      })),
+      detail: {
+        code: det.code, name: det.name, color: det.color,
+        weekLabel: hm(det.week), totalLabel: det.total + 'h', avgLabel: det.avg,
+        interruptions: det.interruptions,
+        week: det.spark.map((v, i) => ({
+          label: DAY_LABELS[i],
+          h: Math.max(3, Math.round(v * 40)) + 'px',
+          fill: v ? det.color : 'var(--color-neutral-800)',
+        })),
+        recent: RECENT[det.id] || RECENT_FALLBACK,
+      },
+      log: LOG.map(g => ({
+        day: g.day, total: g.total,
+        items: g.items.map(i => ({
+          code: i.code, meta: i.meta, dur: i.dur,
+          color: (s.courses.find(c => c.id === i.id) || {}).color || 'var(--color-neutral-600)',
+        })),
+      })),
+      heatWeeks,
+      timer: {
+        clock: Math.floor(s.left / 60) + ':' + String(s.left % 60).padStart(2, '0'),
+        phaseLabel: phaseNames[s.phase],
+        cycleLabel: 'Cycle ' + s.cycle + ' of 4',
+        courseName: course.name,
+        ringColor: s.phase === 'focus' ? 'var(--color-accent)' : 'var(--color-accent-2-400)',
+        dashoffset: C * (1 - prog),
+        pulse: s.running ? 'noct-breathe 3.2s ease-in-out infinite' : 'none',
+        toggleLabel: s.running ? 'Pause' : s.left === len ? 'Start' : 'Resume',
+        toggle: () => this.setState(p => ({ running: !p.running })),
+        skip: () => this.setState(p => p.phase === 'focus'
+          ? { phase: p.cycle >= 4 ? 'long' : 'break', left: this.phaseLen(p.cycle >= 4 ? 'long' : 'break') }
+          : { phase: 'focus', cycle: p.phase === 'long' ? 1 : p.cycle + 1, left: this.phaseLen('focus') }),
+        interrupt: () => this.setState(p => ({ interruptions: p.interruptions + 1, running: false })),
+        interruptions: s.interruptions,
+        end: () => this.setState({ view: 'tab', tab: 'log', running: false }),
+        elapsedLabel: hm(s.elapsed / 3600 + 1.333),
+        chips: s.courses.map(c => ({
+          code: c.code,
+          fg: c.id === s.timerCourse ? c.color : 'var(--color-neutral-400)',
+          ring: c.id === s.timerCourse ? 'inset 0 0 0 1px ' + c.color : ring,
+          pick: () => this.setState({ timerCourse: c.id }),
+        })),
+        taskCount: s.tasks.filter(t => t.done).length + ' of ' + s.tasks.length + ' done',
+        tasks: s.tasks.map((t, i) => ({
+          label: t.label,
+          pomos: t.pomos ? t.pomos + ' pomo' + (t.pomos > 1 ? 's' : '') : '—',
+          box: t.done ? 'var(--color-accent)' : 'transparent',
+          ring: t.done ? 'none' : 'inset 0 0 0 1.5px var(--color-neutral-600)',
+          fg: t.done ? 'var(--color-neutral-500)' : 'var(--color-text)',
+          strike: t.done ? 'line-through' : 'none',
+          toggle: () => this.setState(p => ({
+            tasks: p.tasks.map((x, j) => j === i ? { ...x, done: !x.done } : x),
+          })),
+        })),
+        draft: s.draft,
+        setDraft: e => this.setState({ draft: e.target.value }),
+        draftKey: e => { if (e.key === 'Enter') this.addTask(); },
+        addTask: () => this.addTask(),
+      },
+      form: {
+        code: s.form.code,
+        name: s.form.name,
+        setCode: e => this.setState(p => ({ form: { ...p.form, code: e.target.value } })),
+        setName: e => this.setState(p => ({ form: { ...p.form, name: e.target.value } })),
+        swatches: ['#968ae0', '#b5abfc', '#7972a9', '#d2cefd', '#9397ab'].map(col => ({
+          color: col,
+          ring: s.form.color === col ? '0 0 0 2px var(--color-bg), 0 0 0 4px ' + col : 'none',
+          pick: () => this.setState(p => ({ form: { ...p.form, color: col } })),
+        })),
+        goalLabel: hm(s.form.goal),
+        goalPct: Math.round((s.form.goal / goalMax) * 100) + '%',
+        less: () => this.setState(p => ({ form: { ...p.form, goal: Math.max(0.5, p.form.goal - 0.5) } })),
+        more: () => this.setState(p => ({ form: { ...p.form, goal: Math.min(goalMax, p.form.goal + 0.5) } })),
+        submit: () => this.setState(p => {
+          const f = p.form;
+          if (!f.code.trim()) return { view: 'tab', tab: 'courses' };
+          return {
+            courses: p.courses.concat([{
+              id: 'c' + p.courses.length, code: f.code.trim(),
+              name: f.name.trim() || 'Untitled course', color: f.color,
+              week: 0, goal: f.goal, total: 0, sessions: 0, avg: '—', interruptions: 0,
+              spark: [0, 0, 0, 0, 0, 0, 0],
+            }]),
+            form: { code: '', name: '', color: '#968ae0', goal: 4 },
+            view: 'tab', tab: 'courses',
+          };
+        }),
+      },
+    };
+  }
+
+  addTask() {
+    const label = this.state.draft.trim();
+    if (!label) return;
+    this.setState(p => ({ tasks: p.tasks.concat([{ label, done: false, pomos: 0 }]), draft: '' }));
+  }
+}
+
+</script>
+</body>
+</html>
