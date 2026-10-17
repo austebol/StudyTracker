@@ -78,6 +78,8 @@ function defaultSettings() {
   return {
     focusMinutes: 25, breakMinutes: 5, longBreakMinutes: 15, cyclesBeforeLong: 4,
     dailyTargetHrs: 4, termStart: dayKey(startOfWeek(new Date())), termWeeks: 18,
+    autoStart: false,       // false: stop at each phase end and wait for the user
+    backgroundAudio: true,  // silent audio while running keeps Android from freezing the timer
   };
 }
 function load() {
@@ -183,8 +185,12 @@ function advance(a, now, catchingUp) {
     }
     enterPhase(a, nextPhase(a), end);
     transitions.push({ from: was, to: a.phase });
-    // When the app was away, stop after a full set rather than logging hours nobody saw.
-    if (catchingUp && was === 'long') pauseAt(a, end);
+    // Without auto-start, every phase end waits for the user. With it, still stop
+    // after a full set when the app was away rather than logging hours nobody saw.
+    if (!db.settings.autoStart || (catchingUp && was === 'long')) {
+      pauseAt(a, end);
+      a.awaiting = true;
+    }
   }
   return transitions;
 }
@@ -417,7 +423,7 @@ function viewDetail() {
 
 function viewForm() {
   const f = ui.form;
-  const goalMax = 12;
+  const goalMax = 16;
   return `
     <div class="screen push-in">
       <button class="btn btn-ghost" style="min-height:40px;font-size:13px;margin-bottom:8px" data-act="back">← Cancel</button>
@@ -487,9 +493,10 @@ function viewTimer() {
         </div>
       </div>
       <div style="display:flex;gap:8px;margin:18px 0 10px">
-        <button class="btn btn-primary" style="flex:1;min-height:48px;font-size:15px" data-act="toggleTimer">${a.running ? 'Pause' : isPristine(a) || (a.remaining === phaseLen(a.phase) && a.phase === 'focus' && a.focusBank === 0) ? 'Start' : 'Resume'}</button>
+        <button class="btn btn-primary" style="flex:1;min-height:48px;font-size:15px" data-act="toggleTimer">${toggleLabel(a)}</button>
         <button class="btn btn-secondary" style="min-height:48px;font-size:13px;padding:0 14px" data-act="skip">Skip</button>
       </div>
+      ${a.awaiting ? `<div style="font-size:12px;color:var(--color-accent-300);margin:-2px 0 10px">${a.phase === 'focus' ? 'Break over. Start focusing when you are ready.' : 'Focus phase done. Start your ' + PHASE_WORD[a.phase] + ' when you are ready, or skip it.'}</div>` : ''}
       <button class="btn btn-secondary btn-block" style="min-height:44px;font-size:13px" data-act="interrupt">Log interruption · ${a.interruptions}</button>
       <div class="fade-rule" style="margin:20px 0 14px"></div>
       <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px">
@@ -511,6 +518,13 @@ function viewTimer() {
       <div style="flex:1"></div>
       <button class="btn btn-secondary btn-block" id="t-end" style="min-height:44px;font-size:13px;margin-top:18px" data-act="endSession">End session</button>
     </div>`;
+}
+
+function toggleLabel(a) {
+  if (a.running) return 'Pause';
+  if (isPristine(a)) return 'Start';
+  if (a.remaining >= phaseLen(a.phase)) return 'Start ' + PHASE_WORD[a.phase];
+  return 'Resume';
 }
 
 function updateTimerDom() {
@@ -794,6 +808,21 @@ function viewSession() {
     </div>`;
 }
 
+function notifStatus() {
+  if (!('Notification' in window)) return 'Not supported in this browser.';
+  if (Notification.permission === 'granted') return 'Allowed. Test plays the alarm and sends a notification in 5 seconds.';
+  if (Notification.permission === 'denied') return 'Blocked. Allow them in Chrome: ⋮ → Settings → Site settings → Notifications.';
+  return 'Needed for alerts when the app is in the background.';
+}
+function toggleRow(key, label, hint) {
+  const on = !!db.settings[key];
+  return `
+      <div class="set-row">
+        <div><div class="set-label">${label}</div><div class="set-hint">${hint}</div></div>
+        <button class="btn ${on ? 'btn-primary' : 'btn-secondary'}" style="min-height:44px;min-width:64px;font-size:13px;flex:none" role="switch" aria-checked="${on}" data-act="toggleSetting" data-key="${key}">${on ? 'On' : 'Off'}</button>
+      </div>`;
+}
+
 function viewSettings() {
   const s = db.settings;
   const row = (key, hint) => {
@@ -816,6 +845,17 @@ function viewSettings() {
 
       <h6 style="margin:0 0 4px;color:var(--color-neutral-400)">Pomodoro</h6>
       ${row('focusMinutes')}${row('breakMinutes')}${row('longBreakMinutes')}${row('cyclesBeforeLong')}
+      <div class="fade-rule"></div>
+
+      <h6 style="margin:0 0 4px;color:var(--color-neutral-400)">Alerts</h6>
+      ${toggleRow('autoStart', 'Auto-start next phase', s.autoStart ? 'Breaks and focus phases follow on without stopping.' : 'The timer stops at each phase end and waits for you.')}
+      ${toggleRow('backgroundAudio', 'Keep timer alive in background', 'Plays silent audio while the timer runs so Android does not freeze it. Adds a media control to your notifications.')}
+      <div class="set-row">
+        <div><div class="set-label">Notifications</div><div class="set-hint">${notifStatus()}</div></div>
+        ${'Notification' in window && Notification.permission === 'default'
+          ? '<button class="btn btn-primary" style="min-height:44px;font-size:13px;flex:none" data-act="enableNotifications">Allow</button>'
+          : '<button class="btn btn-secondary" style="min-height:44px;font-size:13px;flex:none" data-act="testAlert">Test</button>'}
+      </div>
       <div class="fade-rule"></div>
 
       <h6 style="margin:0 0 4px;color:var(--color-neutral-400)">Targets &amp; term</h6>
@@ -849,18 +889,18 @@ function push(view) {
 function back() {
   if (ui.stack.length) history.back();
 }
-let suppressPops = 0;
-window.addEventListener('popstate', () => {
-  if (suppressPops > 0) { suppressPops--; return; }
-  if (ui.stack.length) {
-    ui.stack.pop();
+// The history entry depth is the source of truth, so fast taps (back, then a tab)
+// cannot leave the view stack and the browser history out of step.
+window.addEventListener('popstate', e => {
+  const depth = (e.state && e.state.depth) || 0;
+  if (ui.stack.length > depth) {
+    ui.stack.length = depth;
     ui.armedDelete = null;
     render();
   }
 });
 function goTab(tab) {
   if (ui.stack.length) {
-    suppressPops++;
     history.go(-ui.stack.length);
     ui.stack = [];
   }
@@ -899,7 +939,7 @@ const actions = {
     push('form');
   },
   pickColor(el) { ui.form.color = el.dataset.color; render(); },
-  goal(el) { ui.form.goal = clamp(ui.form.goal + Number(el.dataset.d), 0.5, 12); render(); },
+  goal(el) { ui.form.goal = clamp(ui.form.goal + Number(el.dataset.d), 0.5, 16); render(); },
   submitForm() {
     const f = ui.form;
     const code = f.code.trim().replace(/\s+/g, ' ');
@@ -936,30 +976,37 @@ const actions = {
   },
   toggleTimer() {
     const a = db.active, now = Date.now();
+    a.awaiting = false;
+    stopAlarmRepeat();
+    closePhaseNotifications();
     if (a.running) {
       pauseAt(a, now);
       releaseWakeLock();
+      stopKeepAlive();
     } else {
       if (!a.startedAt) a.startedAt = now;
       a.running = true;
       a.stretchStart = now;
       a.endsAt = now + a.remaining * 1000;
       ensureNotificationPermission();
-      unlockAudio();
+      primeAudio();
+      startKeepAlive();
       requestWakeLock();
     }
     save(); render();
   },
   skip() {
     const a = db.active, now = Date.now();
+    a.awaiting = false;
+    stopAlarmRepeat();
     if (a.running) bankStretch(a, now);
     enterPhase(a, nextPhase(a), now);
-    save(); render();
+    save(); render(); updateMediaSession();
   },
   interrupt() {
     const a = db.active;
     a.interruptions++;
-    if (a.running) { pauseAt(a, Date.now()); releaseWakeLock(); }
+    if (a.running) { pauseAt(a, Date.now()); releaseWakeLock(); stopKeepAlive(); }
     save(); render();
   },
   toggleTask(el) {
@@ -978,6 +1025,8 @@ const actions = {
     const a = db.active, now = Date.now();
     if (a.running) pauseAt(a, now);
     releaseWakeLock();
+    stopAlarmRepeat();
+    closePhaseNotifications();
     const focus = Math.round(a.focusBank);
     if (focus >= 1) {
       db.sessions.push({
@@ -992,6 +1041,7 @@ const actions = {
     db.active = null;
     ui.draft = '';
     save();
+    stopKeepAlive();
     goTab('log');
   },
 
@@ -1024,6 +1074,32 @@ const actions = {
     db.settings[key] = clamp(Math.round((db.settings[key] + def.step * Number(el.dataset.d)) * 10) / 10, def.min, def.max);
     if (db.active && isPristine(db.active)) db.active.remaining = phaseLen('focus');
     save(); render();
+  },
+  toggleSetting(el) {
+    const k = el.dataset.key;
+    db.settings[k] = !db.settings[k];
+    if (k === 'backgroundAudio') {
+      if (db.settings[k] && db.active && db.active.running) startKeepAlive(); else if (!db.settings[k]) stopKeepAlive();
+    }
+    save(); render();
+  },
+  enableNotifications() {
+    Notification.requestPermission().then(() => render()).catch(() => {});
+  },
+  testAlert() {
+    primeAudio();
+    toast('Test alert in 5 seconds — you can lock the screen.');
+    const wasPlaying = audio.keep && !audio.keep.paused;
+    if (!wasPlaying && db.settings.backgroundAudio) {
+      if (!audio.keep) { audio.keep = new Audio(silenceUrl()); audio.keep.loop = true; }
+      audio.keep.play().catch(() => {});
+    }
+    setTimeout(() => {
+      playAlarm();
+      if (document.visibilityState !== 'visible') showPhaseNotification('Test alert', 'Alerts are working.', null);
+      else toast('Test alert.');
+      if (!wasPlaying && audio.keep && !(db.active && db.active.running)) setTimeout(() => audio.keep.pause(), 4000);
+    }, 5000);
   },
   export() {
     const data = JSON.stringify({ app: 'study-tracker', version: 1, exportedAt: new Date().toISOString(), courses: db.courses, sessions: db.sessions, settings: db.settings }, null, 2);
@@ -1148,8 +1224,8 @@ function tick() {
   const transitions = advance(a, now, catchingUp);
   if (transitions.length) {
     save();
-    if (!catchingUp) alertPhase(transitions[transitions.length - 1]);
-    else if (!a.running) releaseWakeLock();
+    if (!a.running) releaseWakeLock();
+    alertPhase(transitions[transitions.length - 1], a, catchingUp);
     render();
     return;
   }
@@ -1166,41 +1242,152 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
     tick();
     render();
-    if (db.active && db.active.running) requestWakeLock();
+    closePhaseNotifications();
+    if (db.active && db.active.running) { requestWakeLock(); startKeepAlive(); }
   }
 });
 
-let audioCtx;
-function unlockAudio() {
-  try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume(); } catch (e) {}
+// Audio is generated as WAV blobs so it plays through <audio> elements, which
+// Android keeps running in the background (Web Audio gets suspended there).
+function wavUrl(samples, rate) {
+  const buf = new ArrayBuffer(44 + samples.length * 2);
+  const v = new DataView(buf);
+  const str = (o, t) => { for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); };
+  str(0, 'RIFF'); v.setUint32(4, 36 + samples.length * 2, true); str(8, 'WAVE');
+  str(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  str(36, 'data'); v.setUint32(40, samples.length * 2, true);
+  for (let i = 0; i < samples.length; i++) v.setInt16(44 + i * 2, clamp(samples[i], -1, 1) * 32767, true);
+  return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
 }
-function chime() {
-  if (!audioCtx) return;
-  const t0 = audioCtx.currentTime;
-  [0, 0.28].forEach((off, i) => {
-    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-    o.type = 'sine'; o.frequency.value = i ? 784 : 659;
-    g.gain.setValueAtTime(0.0001, t0 + off);
-    g.gain.exponentialRampToValueAtTime(0.25, t0 + off + 0.02);
-    g.gain.exponentialRampToValueAtTime(0.0001, t0 + off + 0.6);
-    o.connect(g).connect(audioCtx.destination);
-    o.start(t0 + off); o.stop(t0 + off + 0.65);
-  });
+function silenceUrl() {
+  // Near-silent rather than digital zero, so no platform treats it as "not playing".
+  const rate = 8000, s = new Float32Array(rate * 6);
+  for (let i = 0; i < s.length; i++) s[i] = (i % 2 ? 1 : -1) * 0.00004;
+  return wavUrl(s, rate);
 }
-function alertPhase(tr) {
-  const msg = tr.to === 'focus' ? 'Break over — focus phase started.' : tr.to === 'long' ? 'Focus phase done — long break.' : 'Focus phase done — short break.';
-  try { navigator.vibrate && navigator.vibrate([180, 90, 180]); } catch (e) {}
-  chime();
-  toast(msg);
-  if (document.visibilityState !== 'visible' && 'Notification' in window && Notification.permission === 'granted' && navigator.serviceWorker) {
-    navigator.serviceWorker.ready.then(reg => reg.showNotification('Study Tracker', {
-      body: msg, tag: 'phase', renotify: true, icon: 'icons/icon-192.png', badge: 'icons/icon-192.png',
-    })).catch(() => {});
+function alarmUrl() {
+  const rate = 22050, len = 3.4, s = new Float32Array(Math.floor(rate * len));
+  // three rising two-note chimes
+  const notes = [[0, 659], [0.22, 880], [1.1, 659], [1.32, 880], [2.2, 659], [2.42, 988]];
+  for (const [at, f] of notes) {
+    const start = Math.floor(at * rate), dur = Math.floor(0.9 * rate);
+    for (let i = 0; i < dur && start + i < s.length; i++) {
+      const t = i / rate;
+      const env = Math.min(1, t / 0.01) * Math.exp(-t * 4.5);
+      s[start + i] += 0.45 * env * (Math.sin(2 * Math.PI * f * t) + 0.25 * Math.sin(4 * Math.PI * f * t));
+    }
+  }
+  return wavUrl(s, rate);
+}
+const audio = { keep: null, alarm: null, repeat: null };
+function startKeepAlive() {
+  if (!db.settings.backgroundAudio) return;
+  try {
+    if (!audio.keep) { audio.keep = new Audio(silenceUrl()); audio.keep.loop = true; }
+    audio.keep.play().catch(() => {});
+  } catch (e) {}
+  updateMediaSession();
+}
+function stopKeepAlive() {
+  if (audio.keep) audio.keep.pause();
+  updateMediaSession();
+}
+function primeAudio() {
+  // Called from a tap so later background playback is allowed.
+  try {
+    if (!audio.alarm) { audio.alarm = new Audio(alarmUrl()); audio.alarm.preload = 'auto'; }
+    audio.alarm.load();
+  } catch (e) {}
+}
+function playAlarm() {
+  try {
+    if (!audio.alarm) audio.alarm = new Audio(alarmUrl());
+    audio.alarm.currentTime = 0;
+    audio.alarm.onended = () => { if (!db.active || !db.active.running) stopKeepAlive(); };
+    audio.alarm.play().catch(() => {});
+  } catch (e) {}
+  try { navigator.vibrate && navigator.vibrate([300, 150, 300, 150, 300]); } catch (e) {}
+}
+function stopAlarmRepeat() { clearInterval(audio.repeat); audio.repeat = null; }
+
+const PHASE_WORD = { focus: 'focus', break: 'short break', long: 'long break' };
+function alertPhase(tr, a, catchingUp) {
+  const title = tr.from === 'focus' ? 'Focus phase done' : 'Break over';
+  const next = PHASE_WORD[tr.to];
+  const body = a.running
+    ? next[0].toUpperCase() + next.slice(1) + ' started — until ' + clockHM(a.endsAt) + '.'
+    : 'Tap “Start ' + next + '” when you are ready.';
+  const hidden = document.visibilityState !== 'visible';
+  if (!catchingUp || !hidden) playAlarm();
+  toast(title + '. ' + body);
+  if (hidden) showPhaseNotification(title, body, a.running ? null : next);
+  // Keep nagging gently while the app is open and waiting, for up to a minute.
+  stopAlarmRepeat();
+  if (a.awaiting) {
+    let n = 0;
+    audio.repeat = setInterval(() => {
+      if (!db.active || !db.active.awaiting || ++n > 5) return stopAlarmRepeat();
+      if (document.visibilityState === 'visible') playAlarm();
+    }, 12000);
   }
 }
-function ensureNotificationPermission() {
-  if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission().catch(() => {});
+function showPhaseNotification(title, body, startWord) {
+  if (!('Notification' in window) || Notification.permission !== 'granted' || !navigator.serviceWorker) return;
+  navigator.serviceWorker.ready.then(reg => reg.showNotification(title, {
+    body, tag: 'phase', renotify: true, requireInteraction: !!startWord,
+    vibrate: [300, 150, 300, 150, 300], icon: 'icons/icon-192.png',
+    actions: startWord ? [{ action: 'start', title: 'Start ' + startWord }] : [],
+  })).catch(() => {});
 }
+function closePhaseNotifications() {
+  if (!navigator.serviceWorker) return;
+  navigator.serviceWorker.ready
+    .then(reg => reg.getNotifications({ tag: 'phase' }))
+    .then(list => list.forEach(n => n.close()))
+    .catch(() => {});
+}
+function ensureNotificationPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission().then(() => { if (currentView() === 'settings') render(); }).catch(() => {});
+  }
+}
+if (navigator.serviceWorker) {
+  navigator.serviceWorker.addEventListener('message', e => {
+    const a = db.active;
+    if (e.data && e.data.type === 'start-next' && a && !a.running) actions.toggleTimer();
+  });
+}
+
+// Lock-screen / notification-shade controls while the timer runs.
+function updateMediaSession() {
+  if (!('mediaSession' in navigator)) return;
+  const a = db.active;
+  const playing = !!(a && a.running && audio.keep && !audio.keep.paused);
+  if (!a || !playing) {
+    navigator.mediaSession.playbackState = 'paused';
+    if (!a) navigator.mediaSession.metadata = null;
+    return;
+  }
+  const name = PHASE_WORD[a.phase];
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title: name[0].toUpperCase() + name.slice(1) + ' · until ' + clockHM(a.endsAt),
+    artist: courseById(a.courseId).code + ' · cycle ' + a.cycle + ' of ' + db.settings.cyclesBeforeLong,
+    album: 'Study Tracker',
+    artwork: [
+      { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+  });
+  navigator.mediaSession.playbackState = 'playing';
+}
+if ('mediaSession' in navigator) {
+  const set = (k, fn) => { try { navigator.mediaSession.setActionHandler(k, fn); } catch (e) {} };
+  set('play', () => { if (db.active && !db.active.running) actions.toggleTimer(); });
+  set('pause', () => { if (db.active && db.active.running) actions.toggleTimer(); });
+  set('nexttrack', () => { if (db.active) actions.skip(); });
+}
+
 let wakeLock = null;
 async function requestWakeLock() {
   try {
@@ -1233,5 +1420,5 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 
 history.replaceState({ depth: 0 }, '');
 tick();
-if (db.active && db.active.running) requestWakeLock();
+if (db.active && db.active.running) { requestWakeLock(); startKeepAlive(); }
 render();

@@ -1,5 +1,5 @@
 /* Offline support: the app shell is cached on install; Google Fonts are cached on first use. */
-const VERSION = 'study-tracker-v1';
+const VERSION = 'study-tracker-v2';
 const SHELL = ['./', 'index.html', 'app.js', 'app.css', 'nocturne.css', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png'];
 
 self.addEventListener('install', e => {
@@ -45,8 +45,11 @@ self.addEventListener('fetch', e => {
 
 self.addEventListener('notificationclick', e => {
   e.notification.close();
-  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
-    const open = list.find(c => 'focus' in c);
-    return open ? open.focus() : self.clients.openWindow('./');
+  const startNext = e.action === 'start';
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async list => {
+    let client = list.find(c => 'focus' in c);
+    if (client) await client.focus().catch(() => {});
+    else client = await self.clients.openWindow('./');
+    if (startNext && client) client.postMessage({ type: 'start-next' });
   }));
 });
