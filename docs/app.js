@@ -1261,10 +1261,9 @@ function wavUrl(samples, rate) {
   return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
 }
 function silenceUrl() {
-  // Near-silent rather than digital zero, so no platform treats it as "not playing".
-  const rate = 8000, s = new Float32Array(rate * 6);
-  for (let i = 0; i < s.length; i++) s[i] = (i % 2 ? 1 : -1) * 0.00004;
-  return wavUrl(s, rate);
+  // Pure digital silence: any non-zero signal here was audible as a faint tone on phones.
+  const rate = 8000;
+  return wavUrl(new Float32Array(rate * 6), rate);
 }
 function alarmUrl() {
   const rate = 22050, len = 3.4, s = new Float32Array(Math.floor(rate * len));
