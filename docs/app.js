@@ -23,6 +23,7 @@ const ICONS = {
   log: 'M184,112a8,8,0,0,1-8,8H112a8,8,0,0,1,0-16h64A8,8,0,0,1,184,112Zm-8,24H112a8,8,0,0,0,0,16h64a8,8,0,0,0,0-16Zm48-88V208a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V48A16,16,0,0,1,48,32H208A16,16,0,0,1,224,48ZM48,208H72V48H48Zm160,0V48H88V208H208Z',
   gear: 'M128,80a48,48,0,1,0,48,48A48.050,48.050,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm109.94-52.79a8,8,0,0,0-3.89-5.4l-29.83-17-.12-33.62a8,8,0,0,0-2.83-6.08,111.910,111.910,0,0,0-36.72-20.67,8,8,0,0,0-6.46.59L128,41.85,97.88,25a8,8,0,0,0-6.47-.6A112.100,112.100,0,0,0,54.73,45.15a8,8,0,0,0-2.83,6.07l-.15,33.65-29.83,17a8,8,0,0,0-3.89,5.4,106.470,106.470,0,0,0,0,41.56,8,8,0,0,0,3.89,5.4l29.830,17,.12,33.62a8,8,0,0,0,2.83,6.08,111.910,111.910,0,0,0,36.72,20.67,8,8,0,0,0,6.46-.59L128,214.150,158.12,231a7.910,7.910,0,0,0,3.9,1,8.090,8.090,0,0,0,2.57-.42,112.100,112.100,0,0,0,36.68-20.73,8,8,0,0,0,2.83-6.07l.15-33.65,29.83-17a8,8,0,0,0,3.89-5.4A106.470,106.470,0,0,0,237.94,107.21Zm-15,34.91-28.57,16.25a8,8,0,0,0-3,3c-.58,1-1.19,2.06-1.81,3.06a7.940,7.940,0,0,0-1.22,4.21l-.15,32.25a95.890,95.890,0,0,1-25.37,14.3L134,199.13a8,8,0,0,0-3.91-1h-.19c-1.21,0-2.43,0-3.64,0a8.080,8.080,0,0,0-4.1,1l-28.84,16.1A96,96,0,0,1,67.88,201l-.11-32.2a8,8,0,0,0-1.22-4.22c-.62-1-1.23-2-1.8-3.06a8.090,8.090,0,0,0-3-3.06l-28.6-16.29a90.490,90.490,0,0,1,0-28.26L61.67,97.63a8,8,0,0,0,3-3c.58-1,1.19-2.06,1.81-3.06a7.940,7.940,0,0,0,1.22-4.21l.15-32.25a95.890,95.890,0,0,1,25.37-14.3L122,56.87a8,8,0,0,0,4.1,1c1.21,0,2.43,0,3.64,0a8.080,8.080,0,0,0,4.1-1l28.84-16.1A96,96,0,0,1,188.12,55l.11,32.2a8,8,0,0,0,1.22,4.22c.62,1,1.23,2,1.8,3.06a8.090,8.090,0,0,0,3,3.06l28.6,16.29A90.490,90.490,0,0,1,222.9,142.12Z',
 };
+ICONS.pin = 'M128,64a40,40,0,1,0,40,40A40,40,0,0,0,128,64Zm0,64a24,24,0,1,1,24-24A24,24,0,0,1,128,128Zm0-112a88.1,88.1,0,0,0-88,88c0,31.4,14.51,64.68,42,96.25a254.19,254.19,0,0,0,41.45,38.3,8,8,0,0,0,9.18,0A254.19,254.19,0,0,0,174,200.25c27.45-31.57,42-64.85,42-96.25A88.1,88.1,0,0,0,128,16Zm0,206c-16.53-13-72-60.75-72-118a72,72,0,0,1,144,0C200,161.23,144.53,209,128,222Z';
 const TABS = [
   { key: 'today', label: 'Today' },
   { key: 'courses', label: 'Courses' },
@@ -80,6 +81,8 @@ function defaultSettings() {
     dailyTargetHrs: 4, termStart: dayKey(startOfWeek(new Date())), termWeeks: 18,
     autoStart: false,       // false: stop at each phase end and wait for the user
     backgroundAudio: true,  // silent audio while running keeps Android from freezing the timer
+    locations: ['Home', 'Library', 'Campus', 'Lecture'],
+    lastLocation: 'Home',
   };
 }
 function load() {
@@ -119,6 +122,9 @@ const ui = {
   showAllRecent: false,
   logDays: 30,
   armedDelete: null,
+  selDay: null,           // stats: tapped day key
+  manual: null,           // add-session form: { courseId, location, date, time, minutes }
+  newLocation: '',
   draft: '',
 };
 
@@ -133,6 +139,7 @@ function newActive(courseId) {
     courseId, startedAt: null, phase: 'focus', cycle: 1, running: false,
     remaining: phaseLen('focus'), endsAt: null, stretchStart: null,
     focusBank: 0, pomodoros: 0, interruptions: 0, tasks: [],
+    location: db.settings.locations.includes(db.settings.lastLocation) ? db.settings.lastLocation : db.settings.locations[0] || '',
   };
 }
 function remainingNow(a, now = Date.now()) {
@@ -228,10 +235,25 @@ function weekDays(now = new Date()) {
   const mon = startOfWeek(now);
   return Array.from({ length: 7 }, (_, i) => addDays(mon, i));
 }
+/** Location chips; the current value stays listed even if it was removed from Settings. */
+function locationChips(current, act, style = '') {
+  const list = db.settings.locations.slice();
+  if (current && !list.includes(current)) list.push(current);
+  if (!list.length) return '';
+  return `
+      <div class="chips" role="radiogroup" aria-label="Location" style="${style}">
+        ${list.map(l => {
+          const sel = l === current;
+          return `<button class="chip" role="radio" aria-checked="${sel}" style="${sel ? 'color:var(--color-accent-300);box-shadow:inset 0 0 0 1px var(--color-accent-500)' : ''}" data-act="${act}" data-loc="${esc(l)}">${icon('pin', 12)} ${esc(l)}</button>`;
+        }).join('')}
+      </div>`;
+}
+
 function sessionMeta(s, withTime) {
   const parts = [];
   if (withTime) parts.push(clockHM(s.startedAt) + ' – ' + clockHM(s.endedAt));
-  parts.push(plural(s.pomodoros || 0, 'pomodoro'));
+  if (s.location) parts.push(s.location);
+  if (!s.manual) parts.push(plural(s.pomodoros || 0, 'pomodoro'));
   if (s.interruptions) parts.push(plural(s.interruptions, 'interruption'));
   return parts.join(' · ');
 }
@@ -479,6 +501,7 @@ function viewTimer() {
         }).join('')}
       </div>
       ${locked ? '<div style="font-size:11px;color:var(--color-neutral-500);margin:-6px 0 4px">Course is fixed once focus time is logged. End the session to switch.</div>' : ''}
+      ${locationChips(a.location, 'pickLocation', 'margin-top:2px;padding-bottom:4px')}
       <div style="display:flex;flex-direction:column;align-items:center;padding:10px 0 4px">
         <div class="ring-wrap">
           <svg width="236" height="236" viewBox="0 0 236 236" aria-hidden="true">
@@ -566,15 +589,24 @@ function viewStats() {
   const todayK = dayKey(now);
   const dayVals = days.map(x => perDay.get(dayKey(x)) || 0);
   const dayMax = Math.max(3600, ...dayVals);
+  const selK = days.some(x => dayKey(x) === ui.selDay) ? ui.selDay : null;
   const barsHtml = days.map((x, i) => {
-    const v = dayVals[i], isToday = dayKey(x) === todayK;
+    const v = dayVals[i], k = dayKey(x), isToday = k === todayK, isSel = k === selK;
+    const fill = !v ? 'var(--color-neutral-800)' : isSel ? 'var(--color-accent-400)' : isToday ? 'var(--color-accent-500)' : 'var(--color-accent-600)';
     return `
-      <div class="bar-col">
-        <div class="bar" style="background:${!v ? 'var(--color-neutral-800)' : isToday ? 'var(--color-accent-500)' : 'var(--color-accent-600)'};height:${v ? Math.max(4, Math.round((v / dayMax) * 90)) : 3}px${ui.range === 'month' ? ';border-radius:2px 2px 0 0' : ''}"></div>
-        <div class="bar-label" style="${isToday ? 'color:var(--color-accent)' : ''}">${labels[i]}</div>
+      <div class="bar-col press" data-act="selDay" data-k="${k}" aria-label="${longDate(x)}: ${hm(v)}">
+        ${ui.range === 'week' ? `<div class="bar-value" style="${isToday || isSel ? 'color:var(--color-accent-300)' : ''}">${v >= 60 ? hm(v) : ''}</div>` : ''}
+        <div class="bar" style="background:${fill};height:${v ? Math.max(4, Math.round((v / dayMax) * 86)) : 3}px${ui.range === 'month' ? ';border-radius:2px 2px 0 0' : ''}"></div>
+        <div class="bar-label" style="${isToday || isSel ? 'color:var(--color-accent)' : ''}">${labels[i]}</div>
       </div>`;
   }).join('');
   const rangeTotal = sum(dayVals);
+  const rangeName = ui.range === 'week' ? 'This week' : MONTHS[now.getMonth()] + ' ' + now.getFullYear();
+  const studyDays = dayVals.filter(v => v >= 60).length;
+  const selSessions = selK ? sessions.filter(s => dayKey(s.startedAt) === selK) : [];
+  const readout = selK
+    ? `<span style="color:var(--color-accent-300)">${longDate(parseDay(selK))} · ${hm(perDay.get(selK) || 0)}</span>${selSessions.length ? ' · ' + plural(selSessions.length, 'session') : ''}`
+    : `${rangeName} · ${hm(rangeTotal)}${studyDays ? ' · avg ' + hm(rangeTotal / studyDays) + ' per study day' : ''}`;
 
   // course split · term
   const split = new Map();
@@ -590,6 +622,23 @@ function viewStats() {
     cum += frac;
     return out;
   }).join('');
+
+  // by location · term
+  const byLoc = new Map();
+  for (const s of termSessions) {
+    const k = s.location || 'Not set';
+    byLoc.set(k, (byLoc.get(k) || 0) + s.focusSeconds);
+  }
+  const locArr = [...byLoc].sort((a, b) => b[1] - a[1]);
+  const locMax = Math.max(1, ...locArr.map(x => x[1]));
+  const locHtml = locArr.map(([name, sec]) => `
+    <div style="display:flex;align-items:center;gap:10px;font-size:12px">
+      <span class="ellipsis" style="width:84px;flex:none;${name === 'Not set' ? 'color:var(--color-neutral-500)' : ''}">${esc(name)}</span>
+      <div style="flex:1;height:6px;border-radius:3px;background:var(--color-neutral-900);overflow:hidden">
+        <div style="height:100%;width:${(sec / locMax) * 100}%;background:${name === 'Not set' ? 'var(--color-neutral-700)' : 'var(--color-accent-500)'};border-radius:3px"></div>
+      </div>
+      <span style="flex:none;white-space:nowrap;text-align:right;color:var(--color-neutral-400)">${hm(sec)} · ${Math.round((sec / (termTotal || 1)) * 100)}%</span>
+    </div>`).join('');
 
   // when you study — distribute each session's focus across the hours it spans
   const buckets = new Array(24).fill(0);
@@ -620,16 +669,29 @@ function viewStats() {
   })();
 
   // cumulative hours · term
-  const weeksSoFar = clamp(termWeek(now), 1, db.settings.termWeeks);
+  // One point per day from term start to today, so a missed week reads as an
+  // honest flat stretch instead of a jagged weekly step. The target accrues per day.
   const weeklyGoal = sum(activeCourses().map(c => c.weeklyGoalHrs || 0)) * 3600;
-  const actualPts = [0], targetPts = [0];
-  for (let w = 1; w <= weeksSoFar; w++) {
-    const end = Math.min(termStart + w * 7 * DAY_MS, Date.now());
-    actualPts.push(sum(termSessions.filter(s => s.startedAt < end).map(s => s.focusSeconds)));
-    targetPts.push(weeklyGoal * w);
+  const termDays = clamp(Math.floor((startOfDay(now) - termStartDate()) / DAY_MS) + 1, 1, db.settings.termWeeks * 7);
+  const actualPts = [0];
+  let cumTotal = 0;
+  for (let i = 0; i < termDays; i++) {
+    cumTotal += perDay.get(dayKey(addDays(termStartDate(), i))) || 0;
+    actualPts.push(cumTotal);
   }
-  const cMax = Math.max(3600, ...actualPts, ...targetPts);
-  const toPath = arr => arr.map((v, i) => (i ? 'L' : 'M') + ((i / (arr.length - 1)) * W).toFixed(1) + ' ' + (100 - (v / cMax) * 96).toFixed(1)).join(' ');
+  const targetNow = (weeklyGoal / 7) * termDays;
+  const cMax = Math.max(3600, cumTotal, targetNow) * 1.06;
+  const cx = i => ((i / termDays) * W).toFixed(1);
+  const cy = v => (100 - (v / cMax) * 96).toFixed(1);
+  const actualLine = actualPts.map((v, i) => (i ? 'L' : 'M') + cx(i) + ' ' + cy(v)).join(' ');
+  const targetLine = 'M0 ' + cy(0) + ' L' + W + ' ' + cy(targetNow);
+  const weekTicks = [];
+  for (let t = 7; t < termDays; t += 7) weekTicks.push(t);
+  const behind = targetNow - cumTotal;
+  const cumNote = !weeklyGoal ? 'Set weekly goals on your courses to see a target line.'
+    : Math.abs(behind) < 1800 ? 'On target'
+    : behind > 0 ? hm(behind) + ' behind target' : hm(-behind) + ' ahead of target';
+  const ts = termStartDate();
 
   // heatmap — last 18 weeks, Monday rows first
   const heatStart = addDays(startOfWeek(now), -17 * 7);
@@ -670,8 +732,9 @@ function viewStats() {
           <label class="seg-opt"><input type="radio" name="range" value="month" data-change="range" ${ui.range === 'month' ? 'checked' : ''}><span>Month</span></label>
         </div>
       </div>
-      <div class="bars" style="gap:${ui.range === 'week' ? 7 : 2}px;height:112px">${barsHtml}</div>
-      <div style="font-size:11px;color:var(--color-neutral-500);margin-top:8px">${ui.range === 'week' ? 'This week' : MONTHS[now.getMonth()] + ' ' + now.getFullYear()} · ${hm(rangeTotal)}</div>
+      <div class="bars" style="gap:${ui.range === 'week' ? 7 : 2}px;height:${ui.range === 'week' ? 126 : 112}px">${barsHtml}</div>
+      <div style="font-size:11px;color:var(--color-neutral-500);margin-top:8px;min-height:17px">${readout}</div>
+      <div style="font-size:10px;color:var(--color-neutral-600)">Tap a day for its exact time.</div>
 
       <div class="fade-rule"></div>
       <h6 style="margin:0 0 10px;color:var(--color-neutral-400)">Course split · term</h6>
@@ -686,6 +749,11 @@ function viewStats() {
         </div>
       </div>` : '<div class="empty">No sessions this term yet.</div>'}
 
+      ${locArr.length ? `
+      <div class="fade-rule"></div>
+      <h6 style="margin:0 0 10px;color:var(--color-neutral-400)">By location · term</h6>
+      <div style="display:flex;flex-direction:column;gap:9px">${locHtml}</div>` : ''}
+
       <div class="fade-rule"></div>
       <h6 style="margin:0 0 4px;color:var(--color-neutral-400)">When you study</h6>
       <div style="font-size:11px;color:var(--color-neutral-500);margin-bottom:10px">${peaks}</div>
@@ -698,14 +766,21 @@ function viewStats() {
       </div>
 
       <div class="fade-rule"></div>
-      <h6 style="margin:0 0 10px;color:var(--color-neutral-400)">Cumulative hours · term</h6>
+      <h6 style="margin:0 0 4px;color:var(--color-neutral-400)">Cumulative hours · term</h6>
+      <div style="font-size:11px;color:var(--color-neutral-500);margin-bottom:10px">${cumNote}</div>
       <svg width="100%" height="104" viewBox="0 0 364 104" preserveAspectRatio="none" style="display:block" aria-hidden="true">
-        <path d="${toPath(targetPts)}" fill="none" stroke="#595d6c" stroke-width="1.5" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"></path>
-        <path d="${toPath(actualPts)}" fill="none" stroke="#b5abfc" stroke-width="2.5" vector-effect="non-scaling-stroke"></path>
+        ${weekTicks.map(t => `<line x1="${cx(t)}" x2="${cx(t)}" y1="0" y2="104" stroke="#292b31" stroke-width="1" vector-effect="non-scaling-stroke"></line>`).join('')}
+        <path d="${actualLine} L${W} 104 L0 104 Z" fill="#2b2741"></path>
+        ${weeklyGoal ? `<path d="${targetLine}" fill="none" stroke="#595d6c" stroke-width="1.5" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"></path>` : ''}
+        <path d="${actualLine}" fill="none" stroke="#b5abfc" stroke-width="2.5" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path>
       </svg>
       <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--color-neutral-500);margin-top:6px">
-        <span>Actual ${hrs(actualPts[actualPts.length - 1])}</span><span>Target to week ${weeksSoFar} · ${hrs(targetPts[targetPts.length - 1])}</span>
+        <span>${ts.getDate()} ${MONTHS[ts.getMonth()]}</span><span>Today</span>
       </div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;margin-top:2px">
+        <span style="color:var(--color-accent-400)">Actual ${hrs(cumTotal)}</span><span style="color:var(--color-neutral-500)">${weeklyGoal ? 'Target ' + hrs(targetNow) : ''}</span>
+      </div>
+      <div style="font-size:10px;color:var(--color-neutral-600);margin-top:2px">Vertical lines mark each week.</div>
 
       <div class="fade-rule"></div>
       <h6 style="margin:0 0 10px;color:var(--color-neutral-400)">18 weeks</h6>
@@ -737,7 +812,10 @@ function viewLog() {
   };
   return `
     <div class="screen">
-      <h4 style="margin:0 0 16px;font-size:20px">Session log</h4>
+      <div class="row-between" style="margin-bottom:16px">
+        <h4 style="margin:0;font-size:20px">Session log</h4>
+        <button class="btn btn-primary" style="min-height:36px;font-size:12px" data-act="openManual">+ Add</button>
+      </div>
       ${shown.map(k => {
         const items = groups.get(k).slice().sort((a, b) => a.startedAt - b.startedAt);
         return `
@@ -767,6 +845,53 @@ function viewLog() {
     </div>`;
 }
 
+function viewManual() {
+  const m = ui.manual;
+  return `
+    <div class="screen push-in">
+      <button class="btn btn-ghost" style="min-height:40px;font-size:13px;margin-bottom:8px" data-act="back">← Cancel</button>
+      <h4 style="margin:0 0 4px;font-size:20px">Add session</h4>
+      <div style="font-size:12px;color:var(--color-neutral-500);margin-bottom:18px">For lectures, or study you did without the timer.</div>
+      <div class="field" style="margin-bottom:14px">
+        <label>Course</label>
+        <div class="chips" style="flex-wrap:wrap;padding:2px 0">
+          ${activeCourses().map(x => {
+            const sel = x.id === m.courseId;
+            return `<button class="chip" role="radio" aria-checked="${sel}" style="${sel ? `color:${x.color};box-shadow:inset 0 0 0 1px ${x.color}` : ''}" data-act="manualCourse" data-id="${x.id}">${esc(x.code)}</button>`;
+          }).join('')}
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:14px">
+        <label>Location</label>
+        ${locationChips(m.location, 'manualLocation', 'flex-wrap:wrap;padding:2px 0')}
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:14px">
+        <div class="field" style="flex:1.3">
+          <label for="m-date">Date</label>
+          <input id="m-date" type="date" class="input" value="${m.date}" max="${dayKey(new Date())}" data-change="manualDate">
+        </div>
+        <div class="field" style="flex:1">
+          <label for="m-time">Start</label>
+          <input id="m-time" type="time" class="input" value="${m.time}" data-change="manualTime" style="color-scheme:dark">
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:6px">
+        <label>Length</label>
+        <div class="set-row" style="border:0;padding:0">
+          <span class="num" style="font-size:22px">${hm(m.minutes * 60)}</span>
+          <div class="stepper">
+            <button class="btn btn-secondary btn-icon" data-act="manualMinutes" data-d="-15" aria-label="15 minutes less">−</button>
+            <span class="set-val" style="min-width:40px;font-size:12px;color:var(--color-neutral-500)">15 min</span>
+            <button class="btn btn-secondary btn-icon" data-act="manualMinutes" data-d="15" aria-label="15 minutes more">+</button>
+          </div>
+        </div>
+      </div>
+      ${m.error ? `<div class="field-error" style="margin-bottom:8px">${esc(m.error)}</div>` : ''}
+      <button class="btn btn-primary btn-block" style="min-height:48px;font-size:15px;margin-top:14px" data-act="saveManual">Save session</button>
+      <p style="font-size:11px;color:var(--color-neutral-500);margin-top:12px">Counts as study time in Today, Stats and your course goals.</p>
+    </div>`;
+}
+
 function viewSession() {
   const s = db.sessions.find(x => x.id === ui.sessionId);
   if (!s) return '<div class="screen"><div class="empty">Session not found.</div></div>';
@@ -786,6 +911,10 @@ function viewSession() {
             return `<button class="chip" role="radio" aria-checked="${sel}" style="${sel ? `color:${x.color};box-shadow:inset 0 0 0 1px ${x.color}` : ''}" data-act="sessionCourse" data-id="${x.id}">${esc(x.code)}</button>`;
           }).join('')}
         </div>
+      </div>
+      <div class="field" style="margin-bottom:16px">
+        <label>Location</label>
+        ${locationChips(s.location, 'sessionLocation', 'flex-wrap:wrap;padding:2px 0')}
       </div>
       <div class="field" style="margin-bottom:8px">
         <label>Focus time</label>
@@ -865,6 +994,17 @@ function viewSettings() {
         <input type="date" class="input" style="width:auto;flex:none" value="${s.termStart}" data-change="termStart" aria-label="Term start date">
       </div>
       ${row('termWeeks')}
+      <div class="fade-rule"></div>
+
+      <h6 style="margin:0 0 8px;color:var(--color-neutral-400)">Locations</h6>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+        ${db.settings.locations.map(l => `<span class="chip" style="display:inline-flex;align-items:center;gap:4px;padding-right:4px;cursor:default">${icon('pin', 12)} ${esc(l)}<button class="btn btn-ghost" style="min-height:26px;padding:0 6px;font-size:14px;color:var(--color-neutral-400)" aria-label="Remove ${esc(l)}" data-act="removeLocation" data-loc="${esc(l)}">×</button></span>`).join('') || '<span class="empty">No locations. Add one below.</span>'}
+      </div>
+      <div style="display:flex;gap:8px">
+        <input id="s-loc" class="input" style="flex:1" placeholder="Add a location, e.g. Lab" maxlength="24" autocomplete="off" value="${esc(ui.newLocation)}" data-model="newLocation" data-enter="addLocation">
+        <button class="btn btn-secondary" style="min-height:44px;padding:0 14px" data-act="addLocation">Add</button>
+      </div>
+      <p style="font-size:11px;color:var(--color-neutral-500);margin-top:8px">Removing a location keeps it on sessions that already use it.</p>
       <div class="fade-rule"></div>
 
       <h6 style="margin:0 0 8px;color:var(--color-neutral-400)">Data</h6>
@@ -965,6 +1105,7 @@ const actions = {
     save();
     render();
   },
+  selDay(el) { ui.selDay = ui.selDay === el.dataset.k ? null : el.dataset.k; render(); },
   seeAllRecent() { ui.showAllRecent = true; render(); },
   moreLog() { ui.logDays += 30; render(); },
 
@@ -1030,7 +1171,7 @@ const actions = {
     const focus = Math.round(a.focusBank);
     if (focus >= 1) {
       db.sessions.push({
-        id: uid(), courseId: a.courseId, startedAt: a.startedAt, endedAt: now,
+        id: uid(), courseId: a.courseId, startedAt: a.startedAt, endedAt: now, location: a.location || '',
         focusSeconds: focus, pomodoros: a.pomodoros, interruptions: a.interruptions,
         tasks: a.tasks.map(t => ({ label: t.label, done: t.done, pomodoros: t.pomodoros })),
       });
@@ -1043,6 +1184,65 @@ const actions = {
     save();
     stopKeepAlive();
     goTab('log');
+  },
+
+  // locations
+  pickLocation(el) {
+    db.active.location = el.dataset.loc;
+    db.settings.lastLocation = el.dataset.loc;
+    save(); render();
+  },
+  sessionLocation(el) {
+    const s = db.sessions.find(x => x.id === ui.sessionId);
+    s.location = el.dataset.loc; save(); render();
+  },
+  addLocation() {
+    const name = ui.newLocation.trim().replace(/\s+/g, ' ').slice(0, 24);
+    if (!name) return;
+    if (db.settings.locations.some(l => l.toLowerCase() === name.toLowerCase())) { toast(name + ' is already in the list.'); return; }
+    db.settings.locations.push(name);
+    ui.newLocation = '';
+    save(); render();
+  },
+  removeLocation(el) {
+    db.settings.locations = db.settings.locations.filter(l => l !== el.dataset.loc);
+    save(); render();
+  },
+
+  // manual session (lectures, or study without the timer)
+  openManual() {
+    const now = new Date();
+    const courses = activeCourses();
+    if (!courses.length) { toast('Add a course first.'); return; }
+    const locs = db.settings.locations;
+    const lecture = locs.find(l => /lecture/i.test(l));
+    const start = new Date(now.getTime() - 90 * 60000);
+    start.setMinutes(Math.floor(start.getMinutes() / 15) * 15, 0, 0);
+    ui.manual = {
+      courseId: courses[0].id,
+      location: lecture || db.settings.lastLocation || locs[0] || '',
+      date: dayKey(start), time: pad(start.getHours()) + ':' + pad(start.getMinutes()),
+      minutes: 90, error: '',
+    };
+    push('manual');
+  },
+  manualCourse(el) { ui.manual.courseId = el.dataset.id; render(); },
+  manualLocation(el) { ui.manual.location = el.dataset.loc; render(); },
+  manualMinutes(el) { ui.manual.minutes = clamp(ui.manual.minutes + Number(el.dataset.d), 5, 600); render(); },
+  saveManual() {
+    const m = ui.manual;
+    const [y, mo, d] = m.date.split('-').map(Number);
+    const [h, mi] = m.time.split(':').map(Number);
+    const start = new Date(y, mo - 1, d, h, mi).getTime();
+    if (!m.date || !m.time || isNaN(start)) { m.error = 'Pick a date and start time.'; return render(); }
+    if (start > Date.now()) { m.error = 'That start time is in the future.'; return render(); }
+    db.sessions.push({
+      id: uid(), courseId: m.courseId, startedAt: start, endedAt: start + m.minutes * 60000,
+      location: m.location, focusSeconds: m.minutes * 60, pomodoros: 0, interruptions: 0, tasks: [], manual: true,
+    });
+    save();
+    toast(hm(m.minutes * 60) + ' logged to ' + courseById(m.courseId).code + (m.location ? ' · ' + m.location : '') + '.');
+    back();
   },
 
   // log / session edit
@@ -1120,8 +1320,10 @@ const actions = {
 };
 
 const changes = {
-  range(el) { ui.range = el.value; render(); },
+  range(el) { ui.range = el.value; ui.selDay = null; render(); },
   termStart(el) { if (el.value) { db.settings.termStart = el.value; save(); render(); } },
+  manualDate(el) { ui.manual.date = el.value; ui.manual.error = ''; },
+  manualTime(el) { ui.manual.time = el.value; ui.manual.error = ''; },
 };
 
 // ───────────────────────── rendering
@@ -1138,6 +1340,7 @@ function render() {
     : view === 'form' ? viewForm()
     : view === 'session' ? viewSession()
     : view === 'settings' ? viewSettings()
+    : view === 'manual' ? viewManual()
     : ui.tab === 'courses' ? viewCourses()
     : ui.tab === 'stats' ? viewStats()
     : ui.tab === 'log' ? viewLog()
@@ -1180,6 +1383,7 @@ document.addEventListener('input', e => {
   const m = e.target.dataset && e.target.dataset.model;
   if (!m) return;
   if (m === 'draft') ui.draft = e.target.value;
+  else if (m === 'newLocation') ui.newLocation = e.target.value;
   else if (m.startsWith('form.') && ui.form) { ui.form[m.slice(5)] = e.target.value; if (m === 'form.code') ui.form.error = ''; }
 });
 document.addEventListener('change', e => {

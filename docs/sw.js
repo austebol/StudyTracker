@@ -1,5 +1,5 @@
 /* Offline support: the app shell is cached on install; Google Fonts are cached on first use. */
-const VERSION = 'study-tracker-v3';
+const VERSION = 'study-tracker-v4';
 const SHELL = ['./', 'index.html', 'app.js', 'app.css', 'nocturne.css', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png'];
 
 self.addEventListener('install', e => {
