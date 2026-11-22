@@ -1,9 +1,12 @@
 /* Offline support: the app shell is cached on install; Google Fonts are cached on first use. */
-const VERSION = 'study-tracker-v5';
+const VERSION = 'study-tracker-v6';
 const SHELL = ['./', 'index.html', 'app.js', 'app.css', 'nocturne.css', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // cache: 'reload' skips the HTTP cache so the offline copy is the version just deployed.
+  e.waitUntil(caches.open(VERSION)
+    .then(c => c.addAll(SHELL.map(u => new Request(u, { cache: 'reload' }))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', e => {
@@ -33,8 +36,11 @@ self.addEventListener('fetch', e => {
   if (url.origin !== location.origin) return;
 
   // Network first for the shell so updates land, falling back to cache offline.
+  // cache: 'no-cache' revalidates with the server instead of trusting the HTTP
+  // cache (GitHub Pages sends max-age=600), so a new index.html never runs
+  // against a stale app.js. A navigate Request can't take an init, hence req.url.
   e.respondWith(
-    fetch(req)
+    fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' })
       .then(res => {
         if (res.ok) { const copy = res.clone(); caches.open(VERSION).then(c => c.put(req, copy)); }
         return res;
