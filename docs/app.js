@@ -83,6 +83,7 @@ function defaultSettings() {
     backgroundAudio: true,  // silent audio while running keeps Android from freezing the timer
     locations: ['Home', 'Library', 'Campus', 'Lecture'],
     lastLocation: 'Home',
+    timerMode: 'pomodoro',  // 'pomodoro' | 'continuous' — remembered from the last session
   };
 }
 function load() {
@@ -140,15 +141,26 @@ function newActive(courseId) {
     remaining: phaseLen('focus'), endsAt: null, stretchStart: null,
     focusBank: 0, pomodoros: 0, interruptions: 0, tasks: [],
     location: db.settings.locations.includes(db.settings.lastLocation) ? db.settings.lastLocation : db.settings.locations[0] || '',
+    mode: db.settings.timerMode === 'continuous' ? 'continuous' : 'pomodoro',
   };
 }
+/** Continuous mode: one stopwatch, no phases, no breaks. endsAt stays null. */
+function isCont(a) { return a.mode === 'continuous'; }
 function remainingNow(a, now = Date.now()) {
+  if (isCont(a)) return 0;
   return a.running ? Math.max(0, (a.endsAt - now) / 1000) : a.remaining;
 }
+function stretchEnd(a, t) { return isCont(a) ? t : Math.min(t, a.endsAt); }
 function liveFocus(a, now = Date.now()) {
   let f = a.focusBank;
-  if (a.running && a.phase === 'focus') f += Math.max(0, (Math.min(now, a.endsAt) - a.stretchStart) / 1000);
+  if (a.running && a.phase === 'focus') f += Math.max(0, (stretchEnd(a, now) - a.stretchStart) / 1000);
   return f;
+}
+/** "12:34" under an hour, "1:02:09" from an hour on. */
+function fmtClock(sec) {
+  sec = Math.max(0, Math.floor(sec));
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  return h ? h + ':' + pad(m) + ':' + pad(s) : m + ':' + pad(s);
 }
 function isPristine(a) {
   return !a.running && a.focusBank === 0 && a.pomodoros === 0 && a.phase === 'focus' && a.cycle === 1 && !a.startedAt;
@@ -160,7 +172,7 @@ function nextPhase(a) {
 }
 function bankStretch(a, until) {
   if (a.running && a.phase === 'focus') {
-    a.focusBank += Math.max(0, (Math.min(until, a.endsAt) - a.stretchStart) / 1000);
+    a.focusBank += Math.max(0, (stretchEnd(a, until) - a.stretchStart) / 1000);
   }
   a.stretchStart = until;
 }
@@ -173,13 +185,14 @@ function enterPhase(a, phase, at) {
 }
 function pauseAt(a, at) {
   bankStretch(a, at);
-  a.remaining = Math.max(0, (a.endsAt - at) / 1000);
+  if (!isCont(a)) a.remaining = Math.max(0, (a.endsAt - at) / 1000);
   a.running = false;
   a.endsAt = null;
 }
 /** Advance through every phase boundary that has passed. Returns the transitions made. */
 function advance(a, now, catchingUp) {
   const transitions = [];
+  if (isCont(a)) return transitions;
   let guard = 0;
   while (a.running && now >= a.endsAt && guard++ < 500) {
     const end = a.endsAt;
@@ -253,7 +266,8 @@ function sessionMeta(s, withTime) {
   const parts = [];
   if (withTime) parts.push(clockHM(s.startedAt) + ' – ' + clockHM(s.endedAt));
   if (s.location) parts.push(s.location);
-  if (!s.manual) parts.push(plural(s.pomodoros || 0, 'pomodoro'));
+  if (s.mode === 'continuous') parts.push('continuous');
+  else if (!s.manual) parts.push(plural(s.pomodoros || 0, 'pomodoro'));
   if (s.interruptions) parts.push(plural(s.interruptions, 'interruption'));
   return parts.join(' · ');
 }
@@ -484,15 +498,20 @@ function viewTimer() {
   const a = db.active;
   const c = courseById(a.courseId);
   const locked = courseLocked(a);
-  const phaseNames = { focus: 'Focus', break: 'Short break', long: 'Long break' };
+  const cont = isCont(a);
+  const phaseNames = { focus: cont ? 'Studying' : 'Focus', break: 'Short break', long: 'Long break' };
   const ringColor = a.phase === 'focus' ? 'var(--color-accent)' : 'var(--color-accent-2-400)';
   const done = a.tasks.filter(t => t.done).length;
   const chips = activeCourses().concat(c.archived && db.courses.includes(c) ? [c] : []);
+  const pristine = isPristine(a);
+  const modeOpt = (mode, label) => `<label class="seg-opt"><input type="radio" name="tmode" value="${mode}" data-change="timerMode" ${a.mode === mode ? 'checked' : ''} ${pristine ? '' : 'disabled'}><span>${label}</span></label>`;
   return `
     <div class="screen push-in" style="display:flex;flex-direction:column">
       <div class="row-between" style="margin-bottom:6px">
         <button class="btn btn-ghost" style="min-height:40px;font-size:13px;white-space:nowrap;flex:none" data-act="back">← Today</button>
-        <span style="font-size:11px;color:var(--color-neutral-500)">Cycle ${a.cycle} of ${db.settings.cyclesBeforeLong}</span>
+        ${pristine
+          ? `<div class="seg" role="radiogroup" aria-label="Timer mode">${modeOpt('pomodoro', 'Pomodoro')}${modeOpt('continuous', 'Continuous')}</div>`
+          : `<span style="font-size:11px;color:var(--color-neutral-500)">${cont ? 'Continuous · no breaks' : 'Cycle ' + a.cycle + ' of ' + db.settings.cyclesBeforeLong}</span>`}
       </div>
       <div class="chips" role="radiogroup" aria-label="Course">
         ${chips.map(x => {
@@ -517,8 +536,9 @@ function viewTimer() {
       </div>
       <div style="display:flex;gap:8px;margin:18px 0 10px">
         <button class="btn btn-primary" style="flex:1;min-height:48px;font-size:15px" data-act="toggleTimer">${toggleLabel(a)}</button>
-        <button class="btn btn-secondary" style="min-height:48px;font-size:13px;padding:0 14px" data-act="skip">Skip</button>
+        ${cont ? '' : '<button class="btn btn-secondary" style="min-height:48px;font-size:13px;padding:0 14px" data-act="skip">Skip</button>'}
       </div>
+      ${cont && pristine ? '<div style="font-size:11px;color:var(--color-neutral-500);margin:-2px 0 10px">Counts up with no breaks. Pause when you stop; every running second is study time.</div>' : ''}
       ${a.awaiting ? `<div style="font-size:12px;color:var(--color-accent-300);margin:-2px 0 10px">${a.phase === 'focus' ? 'Break over. Start focusing when you are ready.' : 'Focus phase done. Start your ' + PHASE_WORD[a.phase] + ' when you are ready, or skip it.'}</div>` : ''}
       <button class="btn btn-secondary btn-block" style="min-height:44px;font-size:13px" data-act="interrupt">Log interruption · ${a.interruptions}</button>
       <div class="fade-rule" style="margin:20px 0 14px"></div>
@@ -546,6 +566,7 @@ function viewTimer() {
 function toggleLabel(a) {
   if (a.running) return 'Pause';
   if (isPristine(a)) return 'Start';
+  if (isCont(a)) return 'Resume';
   if (a.remaining >= phaseLen(a.phase)) return 'Start ' + PHASE_WORD[a.phase];
   return 'Resume';
 }
@@ -553,13 +574,86 @@ function toggleLabel(a) {
 function updateTimerDom() {
   const a = db.active;
   if (!a || currentView() !== 'timer') return;
-  const rem = Math.ceil(remainingNow(a));
-  const len = phaseLen(a.phase);
   const clock = $('#t-clock'), ring = $('#t-ring'), end = $('#t-end');
-  if (clock) clock.textContent = Math.floor(rem / 60) + ':' + pad(rem % 60);
-  if (ring) ring.setAttribute('stroke-dashoffset', String(RING_C * (1 - clamp((len - remainingNow(a)) / len, 0, 1))));
-  if (end) end.textContent = 'End session · ' + hm(liveFocus(a)) + ' logged';
+  const focus = liveFocus(a);
+  if (isCont(a)) {
+    // Count up; the ring fills once per hour.
+    if (clock) clock.textContent = fmtClock(focus);
+    if (ring) ring.setAttribute('stroke-dashoffset', String(RING_C * (1 - (focus % 3600) / 3600)));
+  } else {
+    const rem = Math.ceil(remainingNow(a));
+    const len = phaseLen(a.phase);
+    if (clock) clock.textContent = Math.floor(rem / 60) + ':' + pad(rem % 60);
+    if (ring) ring.setAttribute('stroke-dashoffset', String(RING_C * (1 - clamp((len - remainingNow(a)) / len, 0, 1))));
+  }
+  if (end) end.textContent = 'End session · ' + hm(focus) + ' logged';
 }
+
+// ───────────────────────── landscape: clock only
+
+const LANDSCAPE = window.matchMedia('(orientation: landscape) and (max-height: 540px)');
+let landscapeKey = '';
+/** Parts of the landscape screen that change every second. */
+function landscapeParts() {
+  const a = db.active, now = new Date();
+  if (!a || isPristine(a)) {
+    const today = sum(allSessions().filter(s => dayKey(s.startedAt) === dayKey(now)).map(s => s.focusSeconds));
+    return {
+      key: 'idle', phase: 'No session running', color: 'var(--color-neutral-500)', breathe: false,
+      clock: pad(now.getHours()) + ':' + pad(now.getMinutes()),
+      sub: `Today <b>${hm(today)}</b> studied · turn upright to start`, button: '',
+    };
+  }
+  const c = courseById(a.courseId);
+  const where = c.code + (a.location ? ' · ' + a.location : '');
+  if (isCont(a)) {
+    const started = a.startedAt ? clockHM(a.startedAt) : '—';
+    return {
+      key: 'cont', phase: (a.running ? 'Studying' : 'Paused') + ' · ' + where,
+      color: a.running ? 'var(--color-accent)' : 'var(--color-neutral-500)', breathe: a.running,
+      clock: fmtClock(liveFocus(a)),
+      sub: `Started <b>${started}</b> · now <b>${clockHM(now)}</b>`,
+      button: a.running ? 'Pause' : 'Resume',
+    };
+  }
+  const names = { focus: 'Focus', break: 'Short break', long: 'Long break' };
+  const rem = Math.ceil(remainingNow(a));
+  return {
+    key: 'pomo', phase: names[a.phase] + ' · ' + where,
+    color: a.phase === 'focus' ? 'var(--color-accent)' : 'var(--color-accent-2-400)', breathe: a.running,
+    clock: Math.floor(rem / 60) + ':' + pad(rem % 60),
+    sub: a.running ? `Ends <b>${clockHM(a.endsAt)}</b> · now <b>${clockHM(now)}</b> · ${hm(liveFocus(a))} studied`
+      : a.awaiting ? 'Phase done · tap below when ready'
+      : `Paused · ${hm(liveFocus(a))} studied`,
+    button: toggleLabel(a),
+  };
+}
+function renderLandscape() {
+  const el = document.getElementById('landscape');
+  if (!el || !LANDSCAPE.matches) { landscapeKey = ''; return; }
+  const p = landscapeParts();
+  landscapeKey = p.key + '|' + p.phase + '|' + p.button + '|' + p.breathe;
+  el.innerHTML = `
+    <div class="l-wrap">
+      <div class="l-phase ${p.breathe ? 'breathe' : ''}" style="color:${p.color}">${esc(p.phase)}</div>
+      <div class="l-clock ${p.clock.length > 5 ? 'long' : ''}" id="l-clock" role="timer">${p.clock}</div>
+      <div class="l-sub" id="l-sub">${p.sub}</div>
+      ${p.button ? `<button class="btn btn-primary l-btn" data-act="toggleTimer">${p.button}</button>` : ''}
+    </div>`;
+}
+function updateLandscape() {
+  if (!LANDSCAPE.matches) return;
+  const p = landscapeParts();
+  if (p.key + '|' + p.phase + '|' + p.button + '|' + p.breathe !== landscapeKey) return renderLandscape();
+  const clock = document.getElementById('l-clock'), sub = document.getElementById('l-sub');
+  if (clock) { clock.textContent = p.clock; clock.classList.toggle('long', p.clock.length > 5); }
+  if (sub) sub.innerHTML = p.sub;
+}
+LANDSCAPE.addEventListener('change', () => {
+  renderLandscape();
+  if (LANDSCAPE.matches && db.active && db.active.running) requestWakeLock();
+});
+setInterval(updateLandscape, 500);
 
 function viewStats() {
   const now = new Date();
@@ -1128,7 +1222,7 @@ const actions = {
       if (!a.startedAt) a.startedAt = now;
       a.running = true;
       a.stretchStart = now;
-      a.endsAt = now + a.remaining * 1000;
+      a.endsAt = isCont(a) ? null : now + a.remaining * 1000;
       ensureNotificationPermission();
       primeAudio();
       startKeepAlive();
@@ -1138,6 +1232,7 @@ const actions = {
   },
   skip() {
     const a = db.active, now = Date.now();
+    if (isCont(a)) return;
     a.awaiting = false;
     stopAlarmRepeat();
     if (a.running) bankStretch(a, now);
@@ -1172,7 +1267,7 @@ const actions = {
     if (focus >= 1) {
       db.sessions.push({
         id: uid(), courseId: a.courseId, startedAt: a.startedAt, endedAt: now, location: a.location || '',
-        focusSeconds: focus, pomodoros: a.pomodoros, interruptions: a.interruptions,
+        focusSeconds: focus, pomodoros: a.pomodoros, interruptions: a.interruptions, mode: a.mode || 'pomodoro',
         tasks: a.tasks.map(t => ({ label: t.label, done: t.done, pomodoros: t.pomodoros })),
       });
       toast(hm(focus) + ' logged to ' + courseById(a.courseId).code + '.');
@@ -1324,6 +1419,13 @@ const changes = {
   termStart(el) { if (el.value) { db.settings.termStart = el.value; save(); render(); } },
   manualDate(el) { ui.manual.date = el.value; ui.manual.error = ''; },
   manualTime(el) { ui.manual.time = el.value; ui.manual.error = ''; },
+  timerMode(el) {
+    const a = db.active;
+    if (!a || !isPristine(a)) return;
+    a.mode = el.value === 'continuous' ? 'continuous' : 'pomodoro';
+    db.settings.timerMode = a.mode;
+    save(); render();
+  },
 };
 
 // ───────────────────────── rendering
@@ -1360,6 +1462,7 @@ function render() {
       ${icon(t.key)}<span>${t.label}</span>
     </button>`).join('');
   updateTimerDom();
+  renderLandscape();
 }
 
 let toastTimer;
@@ -1573,9 +1676,10 @@ function updateMediaSession() {
     return;
   }
   const name = PHASE_WORD[a.phase];
+  const cont = isCont(a);
   navigator.mediaSession.metadata = new MediaMetadata({
-    title: name[0].toUpperCase() + name.slice(1) + ' · until ' + clockHM(a.endsAt),
-    artist: courseById(a.courseId).code + ' · cycle ' + a.cycle + ' of ' + db.settings.cyclesBeforeLong,
+    title: cont ? 'Studying · since ' + clockHM(a.stretchStart) : name[0].toUpperCase() + name.slice(1) + ' · until ' + clockHM(a.endsAt),
+    artist: courseById(a.courseId).code + (cont ? ' · continuous' : ' · cycle ' + a.cycle + ' of ' + db.settings.cyclesBeforeLong),
     album: 'Study Tracker',
     artwork: [
       { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },

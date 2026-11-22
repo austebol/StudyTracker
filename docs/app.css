@@ -162,3 +162,27 @@ input[type="date"].input { color-scheme: dark; }
 .bar-col.press:active .bar { filter: brightness(1.25); }
 .chip svg { display: inline-block; vertical-align: -2px; }
 input[type="time"].input { color-scheme: dark; }
+
+/* — landscape: clock only — */
+#landscape { display: none; }
+@media (orientation: landscape) and (max-height: 540px) {
+  #app { display: none; }
+  #toast { bottom: calc(14px + env(safe-area-inset-bottom)); }
+  #landscape {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--color-bg); color: var(--color-text); font-family: var(--font-body);
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+}
+.l-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
+.l-phase { font-size: 12px; letter-spacing: .16em; text-transform: uppercase; }
+.l-phase.breathe { animation: noct-breathe 3.2s ease-in-out infinite; }
+.l-clock {
+  font-family: var(--font-heading); font-weight: 500; line-height: 1;
+  font-size: min(48vh, 26vw); letter-spacing: -.03em; font-variant-numeric: tabular-nums;
+}
+.l-clock.long { font-size: min(40vh, 18vw); }
+.l-sub { font-size: 15px; color: var(--color-neutral-400); font-variant-numeric: tabular-nums; }
+.l-sub b { font-weight: 500; color: var(--color-text); }
+.l-btn { margin-top: 12px; min-height: 40px; min-width: 132px; font-size: 13px; opacity: .75; }
